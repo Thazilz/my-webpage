@@ -1,11 +1,32 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>My Webpage</title>
-</head>
-<body>
-  <h1>Hello World!</h1>
-  <p>This is my first published webpage.</p>
-</body>
-</html>
+<!-- index.html -->
+<form id="contactForm">
+  <input type="text" name="name" placeholder="Your name" required><br>
+  <input type="email" name="email" placeholder="Your email" required><br>
+  <textarea name="message" placeholder="Your message"></textarea><br>
+  <button type="submit">Send</button>
+</form>
+
+<script>
+  const form = document.getElementById('contactForm');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+      name: form.name.value,
+      email: form.email.value,
+      message: form.message.value
+    };
+
+    const res = await fetch('https://my-webpage-3w1f.onrender.com', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+
+    const text = await res.text();
+    alert(text);
+  });
+</script>
+
+
 
