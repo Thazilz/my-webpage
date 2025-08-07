@@ -2,26 +2,32 @@
 <html>
 <head>
   <title>Firebase Test</title>
-  <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js"></script>
-  <script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
-    authDomain: "my-webpage-93c94.firebaseapp.com",
-    databaseURL: "https://my-webpage-93c94-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "my-webpage-93c94",
-    storageBucket: "my-webpage-93c94.firebasestorage.app",
-    messagingSenderId: "959385466155",
-    appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
-  };
 
- firebase.initializeApp(firebaseConfig);
- </script>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-database.js"></script>
+
+  <script>
+    // Your Firebase config
+    const firebaseConfig = {
+  apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
+  authDomain: "my-webpage-93c94.firebaseapp.com",
+  databaseURL: "https://my-webpage-93c94-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "my-webpage-93c94",
+  storageBucket: "my-webpage-93c94.firebasestorage.app",
+  messagingSenderId: "959385466155",
+  appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
+};
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+  </script>
 </head>
 <body>
   <h1>Firebase Connected</h1>
+
   <script>
-    // Example: write to Realtime Database
+    // Example: write data to Realtime Database
     const db = firebase.database();
     db.ref("messages").push({
       name: "Test",
@@ -30,3 +36,4 @@
   </script>
 </body>
 </html>
+
