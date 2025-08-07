@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Firebase Test</title>
+  <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-database.js"></script>
+  <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
+    authDomain: "my-webpage-93c94.firebaseapp.com",
+    databaseURL: "https://my-webpage-93c94-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "my-webpage-93c94",
+    storageBucket: "my-webpage-93c94.firebasestorage.app",
+    messagingSenderId: "959385466155",
+    appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+</script>
+</head>
+<body>
+  <h1>Firebase Connected</h1>
+  <script>
+    // Example: write to Realtime Database
+    const db = firebase.database();
+    db.ref("messages").push({
+      name: "Test",
+      text: "Hello from GitHub Page!"
+    });
+  </script>
+</body>
+</html>
