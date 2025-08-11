@@ -24,7 +24,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+    import { getDatabase, ref, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
@@ -54,25 +54,27 @@
       const message = document.getElementById('message').value;
 
       try {
-        await db.collection("contacts").add({
+        await push(ref(db, 'contacts'), {
           name,
           email,
           message,
-          timestamp: new Date()
+          timestamp: serverTimestamp()
         });
 
         responseMsg.textContent = "Message sent successfully!";
         responseMsg.className = "success";
         contactForm.reset();
       } catch (error) {
+        console.error("Error writing to Firedatabase:", error);
         responseMsg.textContent = "Error sending message.";
         responseMsg.className = "error";
-        console.error("Error writing to Firedatabase:", error);
+        
       }
     });
   </script>
 </body>
 </html>
+
 
 
 
