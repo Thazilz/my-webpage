@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Contact Form</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    form { max-width: 400px; margin: auto; }
+    input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; }
+    button { padding: 10px 20px; }
+    .success { color: green; }
+  </style>
+</head>
+<body>
+  <h2>Contact Us</h2>
+  <form id="contactForm">
+    <input type="text" id="name" placeholder="Your Name" required />
+    <input type="email" id="email" placeholder="Your Email" required />
+    <textarea id="message" placeholder="Your Message" required></textarea>
+    <button type="submit">Send</button>
+  </form>
+  <p id="responseMsg"></p>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
+      authDomain: "my-webpage-93c94.firebaseapp.com",
+      databaseURL: "https://my-webpage-93c94-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "my-webpage-93c94",
+      storageBucket: "my-webpage-93c94.firebasestorage.app",
+      messagingSenderId: "959385466155",
+      appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+
+    // Get a reference to the database
+    const db = getDatabase(app);
+
+    // Form Submission
+    const contactForm = document.getElementById('contactForm');
+    const responseMsg = document.getElementById('responseMsg');
+
+    contactForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const message = document.getElementById('message').value;
+
+      try {
+        await db.collection("contacts").add({
+          name,
+          email,
+          message,
+          timestamp: new Date()
+        });
+
+        responseMsg.textContent = "Message sent successfully!";
+        responseMsg.className = "success";
+        contactForm.reset();
+      } catch (error) {
+        responseMsg.textContent = "Error sending message.";
+        responseMsg.className = "error";
+        console.error("Error writing to Firedatabase:", error);
+      }
+    });
+  </script>
+</body>
+</html>
+
+
+
