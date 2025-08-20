@@ -62,24 +62,26 @@
     const inventoryRef = ref(db, 'inventory');
 
     onChildAdded(inventoryRef, (data) => {
-      const { itemName, amount, timestamp } = data.val();
+  const key = data.key;
+  const { itemName, amount, timestamp } = data.val();
 
-      const dateStr = (timestamp && typeof timestamp === "number")
-        ? new Date(timestamp).toLocaleString()
-        : "Pending timestamp...";
+  const dateStr = (timestamp && typeof timestamp === "number")
+    ? new Date(timestamp).toLocaleString()
+    : "Pending timestamp...";
 
-      const li = document.createElement('li');
+  const li = document.createElement('li');
 
-      const strong = document.createElement('strong');
-      strong.textContent = `${itemName} - Quantity: ${amount}`;
+  const strong = document.createElement('strong');
+  strong.textContent = `${itemName} (Key: ${key}) - Quantity: ${amount}`;
 
-      const time = document.createElement('em');
-      time.textContent = `Submitted: ${dateStr}`;
+  const time = document.createElement('em');
+  time.textContent = `Submitted: ${dateStr}`;
 
-      li.appendChild(strong);
-      li.appendChild(time);
-      inventoryUl.prepend(li);
-    });
+  li.appendChild(strong);
+  li.appendChild(time);
+  inventoryUl.prepend(li);
+});
+
 
     inventoryForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -112,6 +114,7 @@
   </script>
 </body>
 </html>
+
 
 
 
