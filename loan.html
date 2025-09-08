@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Loan Form</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    form { max-width: 500px; margin: auto; background: #f4f4f4; padding: 20px; border-radius: 8px; }
+    input, select { width: 100%; margin-bottom: 10px; padding: 10px; }
+    button { padding: 10px 20px; background-color: #28a745; color: white; border: none; cursor: pointer; }
+    button:hover { background-color: #218838; }
+    .success { color: green; text-align: center; }
+    .error { color: red; text-align: center; }
+    #loanList { max-width: 500px; margin: 30px auto; }
+    #loanList ul { list-style: none; padding: 0; }
+    #loanList li { background: #e9ecef; margin-bottom: 10px; padding: 10px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html">Home</a> |
+  <a href="inventory.html">Inventory</a> |
+  <a href="loan.html">Loan</a> |
+  <a href="return.html">Return</a> |
+  <a href="contact.html">Contact</a>
+</nav>
+
+<h2>Loan an Item</h2>
+
+<form id="loanForm">
+  <input type="text" id="borrowerName" placeholder="Borrower's Name" required />
+  <input type="text" id="itemId" placeholder="Item ID" required />
+  <input type="date" id="loanDate" required />
+  <input type="date" id="returnDate" required />
+  <button type="submit">Submit Loan</button>
+</form>
+
+<p id="loanResponseMsg"></p>
+
+<div id="loanList">
+  <h3>Loan Records</h3>
+  <ul id="loanUl"></ul>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+  import { getDatabase, ref, push, serverTimestamp, onChildAdded } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
+    authDomain: "my-webpage-93c94.firebaseapp.com",
+    databaseURL: "https://my-webpage-93c94-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "my-webpage-93c94",
+    storageBucket: "my-webpage-93c94.appspot.com",
+    messagingSenderId: "959385466155",
+    appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const loanForm = document.getElementById('loanForm');
+  const loanResponseMsg = document.getElementById('loanResponseMsg');
+  const loanUl = document.getElementById('loanUl');
+
+  const loansRef = ref(db, 'loans');
+
+  onChildAdded(loansRef, (data) => {
+    const loan = data.val();
+
+    const li = document.createElement('li');
+    li.textContent = `${loan.borrowerName} borrowed item #${loan.itemId} on ${loan.loanDate}, due back on ${loan.returnDate}`;
+    loanUl.prepend(li);
+  });
+
+  loanForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const borrowerName = document.getElementById('borrowerName').value.trim();
+    const itemId = document.getElementById('itemId').value.trim();
+    const loanDate = document.getElementById('loanDate').value;
+    const returnDate = document.getElementById('returnDate').value;
+
+    if (!borrowerName || !itemId || !loanDate || !returnDate) {
+      loanResponseMsg.textContent = "All fields are required.";
+      loanResponseMsg.className = "error";
+      return;
+    }
+
+    try {
+      await push(loansRef, {
+        borrowerName,
+        itemId,
+        loanDate,
+        returnDate,
+        timestamp: serverTimestamp()
+      });
+
+      loanResponseMsg.textContent = "Loan record submitted!";
+      loanResponseMsg.className = "success";
+      loanForm.reset();
+    } catch (err) {
+      console.error("Loan submission error:", err);
+      loanResponseMsg.textContent = "Error submitting loan. Check console.";
+      loanResponseMsg.className = "error";
+    }
+  });
+</script>
+
+</body>
+</html>
