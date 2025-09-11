@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Return Form</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    form { max-width: 400px; margin: auto; }
+    input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; }
+    button { padding: 10px 20px; }
+    .success { color: green; }
+    .error { color: red; }
+    #returnList { max-width: 400px; margin: 20px auto; }
+    #returnList h3 { margin-bottom: 10px; }
+    #returnList ul { list-style-type: none; padding-left: 0; }
+    #returnList li { background: #f9f9f9; margin-bottom: 8px; padding: 10px; border-radius: 4px; }
+    #returnList li strong { display: block; margin-bottom: 5px; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html">Home</a> |
+  <a href="inventory.html">Inventory</a> |
+  <a href="loan.html">Loan</a> |
+  <a href="return.html">Return</a> |
+  <a href="contact.html">Contact</a>
+</nav>
+
+<h2>Return Equipment</h2>
+<form id="returnForm">
+  <input type="text" id="returnName" placeholder="Your Name" required />
+  <input type="email" id="returnEmail" placeholder="Your Email" required />
+  <input type="text" id="itemReturned" placeholder="Item Name or ID" required />
+  <textarea id="returnNotes" placeholder="Return Notes (optional)"></textarea>
+  <button type="submit">Submit Return</button>
+</form>
+<p id="returnResponse"></p>
+
+<div id="returnList">
+  <h3>Return Records:</h3>
+  <ul id="returnUl"></ul>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+  import { getDatabase, ref, push, serverTimestamp, onChildAdded } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
+    authDomain: "my-webpage-93c94.firebaseapp.com",
+    databaseURL: "https://my-webpage-93c94-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "my-webpage-93c94",
+    storageBucket: "my-webpage-93c94.appspot.com",
+    messagingSenderId: "959385466155",
+    appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const returnRef = ref(db, 'returns');
+
+  const returnForm = document.getElementById('returnForm');
+  const returnResponse = document.getElementById('returnResponse');
+  const returnUl = document.getElementById('returnUl');
+
+  returnForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const name = document.getElementById('returnName').value.trim();
+    const email = document.getElementById('returnEmail').value.trim();
+    const item = document.getElementById('itemReturned').value.trim();
+    const notes = document.getElementById('returnNotes').value.trim();
+
+    if (name === "" || email === "" || item === "") {
+      returnResponse.textContent = "Please fill in all required fields.";
+      returnResponse.className = "error";
+      return;
+    }
+
+    try {
+      await push(returnRef, {
+        name,
+        email,
+        item,
+        notes,
+        timestamp: serverTimestamp()
+      });
+
+      returnResponse.textContent = "Return submitted successfully!";
+      returnResponse.className = "success";
+      returnForm.reset();
+    } catch (error) {
+      console.error("❌ Firebase write error:", error);
+      returnResponse.textContent = "Error submitting return. Check console.";
+      returnResponse.className = "error";
+    }
+  });
+
+  onChildAdded(returnRef, (data) => {
+    const { name, email, item, notes, timestamp } = data.val();
+    const dateStr = (timestamp && typeof timestamp === "number")
+      ? new Date(timestamp).toLocaleString()
+      : "Pending timestamp...";
+
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <strong>${name} (${email})</strong>
+      <em>${dateStr}</em>
+      <p><strong>Item:</strong> ${item}</p>
+      ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ""}
+    `;
+    returnUl.prepend(li);
+  });
+</script>
+
+</body>
+</html>
