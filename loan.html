@@ -31,11 +31,16 @@
 
 <form id="loanForm">
   <input type="text" id="borrowerName" placeholder="Borrower's Name" required />
+  <input type="text" id="department" placeholder="Department" required />
   <input type="text" id="itemId" placeholder="Item ID" required />
+  <input type="text" id="model" placeholder="Model" required />
+  <input type="text" id="brand" placeholder="Brand" required />
+  <input type="number" id="quantity" placeholder="Quantity" required min="1" />
   <input type="date" id="loanDate" required />
   <input type="date" id="returnDate" required />
   <button type="submit">Submit Loan</button>
 </form>
+
 
 <p id="loanResponseMsg"></p>
 
@@ -70,7 +75,12 @@
     const loan = data.val();
 
     const li = document.createElement('li');
-    li.textContent = `${loan.borrowerName} borrowed item #${loan.itemId} on ${loan.loanDate}, due back on ${loan.returnDate}`;
+    li.innerHTML = `
+  <strong>${loan.borrowerName}</strong> (${loan.department})<br>
+  <em>Item ID:</em> ${loan.itemId}<br>
+  <em>Model:</em> ${loan.model} | <em>Brand:</em> ${loan.brand} | <em>Qty:</em> ${loan.quantity}<br>
+  <em>Loan Date:</em> ${loan.loanDate} | <em>Return Date:</em> ${loan.returnDate}
+`;
     loanUl.prepend(li);
   });
 
@@ -78,24 +88,32 @@
     e.preventDefault();
 
     const borrowerName = document.getElementById('borrowerName').value.trim();
+    const department = document.getElementById('department').value.trim();
+    const model = document.getElementById('model').value.trim();
+    const brand = document.getElementById('brand').value.trim();
+    const quantity = parseInt(document.getElementById('quantity').value);
     const itemId = document.getElementById('itemId').value.trim();
     const loanDate = document.getElementById('loanDate').value;
     const returnDate = document.getElementById('returnDate').value;
 
-    if (!borrowerName || !itemId || !loanDate || !returnDate) {
-      loanResponseMsg.textContent = "All fields are required.";
-      loanResponseMsg.className = "error";
-      return;
-    }
+    if (!borrowerName || !department || !itemId || !model || !brand || !quantity || !loanDate || !returnDate) {
+  loanResponseMsg.textContent = "All fields are required.";
+  loanResponseMsg.className = "error";
+  return;
+}
 
     try {
       await push(loansRef, {
-        borrowerName,
-        itemId,
-        loanDate,
-        returnDate,
-        timestamp: serverTimestamp()
-      });
+  borrowerName,
+  department,
+  itemId,
+  model,
+  brand,
+  quantity,
+  loanDate,
+  returnDate,
+  timestamp: serverTimestamp()
+});
 
       loanResponseMsg.textContent = "Loan record submitted!";
       loanResponseMsg.className = "success";
