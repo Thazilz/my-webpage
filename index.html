@@ -32,10 +32,60 @@
   <strong>Welcome to Yokogawa Inventory Records website</strong><br>
   Please select one of the following pages at the top left to continue.
 </p>
-       
-  </script>
+
+<!-- 🔘 NFC Scan Button -->
+<div style="text-align: center; margin-top: 30px;">
+  <button onclick="startNFC()">📲 Scan NFC Tag</button>
+</div>
+
+<!-- 🧪 Optional Test Fields -->
+<form style="max-width: 400px; margin: 20px auto;">
+  <label>Item ID:</label>
+  <input type="text" id="itemId" readonly />
+  <label>Item Name:</label>
+  <input type="text" id="itemName" readonly />
+</form>
+
+<!-- ✅ Script goes here -->
+<script>
+async function startNFC() {
+  if ('NDEFReader' in window) {
+    try {
+      const ndef = new NDEFReader();
+      await ndef.scan();
+      console.log("📡 NFC scan started. Tap an NFC tag...");
+
+      ndef.onreading = event => {
+        const decoder = new TextDecoder();
+        const { message, serialNumber } = event;
+
+        console.log(`🔍 Tag ID: ${serialNumber}`);
+        const itemIdInput = document.getElementById('itemId');
+        if (itemIdInput) itemIdInput.value = serialNumber;
+
+        for (const record of message.records) {
+          if (record.recordType === "text") {
+            const text = decoder.decode(record.data);
+            console.log(`📦 Tag text: ${text}`);
+            const itemNameInput = document.getElementById('itemName');
+            if (itemNameInput) itemNameInput.value = text;
+          }
+        }
+      };
+
+    } catch (error) {
+      console.error("❌ NFC error:", error);
+      alert("⚠️ NFC scanning failed or is not supported.");
+    }
+  } else {
+    alert("❌ Web NFC is not supported in this browser.");
+  }
+}
+</script>
+
 </body>
 </html>
+
 
 
 
