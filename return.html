@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Return Form</title>
+  <title>Return Form with NFC</title>
   <style>
     body { font-family: Arial; padding: 20px; }
     form { max-width: 400px; margin: auto; }
     input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; }
-    button { padding: 10px 20px; }
+    button { padding: 10px 20px; margin-bottom: 10px; }
     .success { color: green; }
     .error { color: red; }
     #returnList { max-width: 400px; margin: 20px auto; }
@@ -29,13 +29,25 @@
 </nav>
 
 <h2>Return Equipment</h2>
+
 <form id="returnForm">
-  <input type="text" id="returnName" placeholder="Your Name" required />
-  <input type="email" id="returnEmail" placeholder="Your Email" required />
-  <input type="text" id="itemReturned" placeholder="Item Name or ID" required />
-  <textarea id="returnNotes" placeholder="Return Notes (optional)"></textarea>
+  <label for="returnName">Your Name</label>
+  <input type="text" id="returnName" required />
+
+  <label for="returnEmail">Your Email</label>
+  <input type="email" id="returnEmail" required />
+
+  <label for="itemReturned">Item Name or ID</label>
+  <input type="text" id="itemReturned" required />
+
+  <label for="returnNotes">Return Notes (optional)</label>
+  <textarea id="returnNotes"></textarea>
+
+  <button type="button" id="scanNfcBtn">Scan with NFC</button> |
+
   <button type="submit">Submit Return</button>
 </form>
+
 <p id="returnResponse"></p>
 
 <div id="returnList">
@@ -44,9 +56,11 @@
 </div>
 
 <script type="module">
+  // Firebase imports
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
   import { getDatabase, ref, push, serverTimestamp, onChildAdded } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
 
+  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
     authDomain: "my-webpage-93c94.firebaseapp.com",
@@ -65,6 +79,7 @@
   const returnResponse = document.getElementById('returnResponse');
   const returnUl = document.getElementById('returnUl');
 
+  // Form submission
   returnForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -73,7 +88,7 @@
     const item = document.getElementById('itemReturned').value.trim();
     const notes = document.getElementById('returnNotes').value.trim();
 
-    if (name === "" || email === "" || item === "") {
+    if (!name || !email || !item) {
       returnResponse.textContent = "Please fill in all required fields.";
       returnResponse.className = "error";
       return;
@@ -98,10 +113,12 @@
     }
   });
 
+  // Display return records
   onChildAdded(returnRef, (data) => {
     const { name, email, item, notes, timestamp } = data.val();
-    const dateStr = (timestamp && typeof timestamp === "number")
-      ? new Date(timestamp).toLocaleString()
+
+    const dateStr = timestamp && timestamp.seconds
+      ? new Date(timestamp.seconds * 1000).toLocaleString()
       : "Pending timestamp...";
 
     const li = document.createElement('li');
@@ -113,7 +130,50 @@
     `;
     returnUl.prepend(li);
   });
+
+  // Web NFC scanning
+  const scanNfcBtn = document.getElementById('scanNfcBtn');
+
+  scanNfcBtn.addEventListener('click', async () => {
+    if ('NDEFReader' in window) {
+      const reader = new NDEFReader();
+
+      try {
+        await reader.scan();
+        returnResponse.textContent = "NFC scan started. Tap a tag...";
+        returnResponse.className = "";
+
+        reader.onreading = (event) => {
+          const { message } = event;
+          for (const record of message.records) {
+            if (record.recordType === "text") {
+              const textDecoder = new TextDecoder(record.encoding || "utf-8");
+              const data = textDecoder.decode(record.data);
+              document.getElementById('itemReturned').value = data;
+              returnResponse.textContent = `Scanned: ${data}`;
+              returnResponse.className = "success";
+              break;
+            }
+          }
+        };
+
+        reader.onerror = (event) => {
+          console.error("NFC Read Error", event);
+          returnResponse.textContent = "NFC scan failed.";
+          returnResponse.className = "error";
+        };
+
+      } catch (err) {
+        console.error("NFC error:", err);
+        returnResponse.textContent = "Error starting NFC scan. Make sure your phone supports NFC and you're using a compatible browser.";
+        returnResponse.className = "error";
+      }
+    } else {
+      alert("Web NFC is not supported on this device or browser.");
+    }
+  });
 </script>
 
 </body>
 </html>
+
