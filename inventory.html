@@ -123,42 +123,52 @@
     }
   });
 
-  // 🟢 NFC Function
   window.startNFC = async function () {
-    const status = document.getElementById("nfcStatus");
+  const status = document.getElementById("nfcStatus");
 
-    if ('NDEFReader' in window) {
-      try {
-        const ndef = new NDEFReader();
-        await ndef.scan();
-        status.textContent = "📡 NFC scanning... Tap a tag!";
-        console.log("NFC scanning started");
+  if ('NDEFReader' in window) {
+    try {
+      const ndef = new NDEFReader();
+      await ndef.scan();
+      status.textContent = "📡 NFC scanning... Tap a tag!";
+      console.log("NFC scanning started");
 
-        ndef.onreading = event => {
-          const decoder = new TextDecoder();
-          const { message, serialNumber } = event;
+      ndef.onreading = event => {
+        const decoder = new TextDecoder();
+        const { message, serialNumber } = event;
 
-          console.log(`📍 Serial Number: ${serialNumber}`);
-          const input = document.getElementById('itemName');
-          input.value = serialNumber; // Default to serialNumber
+        console.log(`📍 Serial Number: ${serialNumber}`);
 
-          for (const record of message.records) {
-            if (record.recordType === "text") {
-              const text = decoder.decode(record.data);
-              console.log(`📝 Text from tag: ${text}`);
-              input.value = text; // Overwrite with readable label
-              status.textContent = `✅ Tag scanned: "${text}"`;
-            }
+        let itemId = serialNumber || "";
+        let itemName = "";
+
+        for (const record of message.records) {
+          if (record.recordType === "text") {
+            const text = decoder.decode(record.data);
+            console.log(`📝 Text from tag: ${text}`);
+            itemName = text;
+            break;  // take first text record
           }
-        };
-      } catch (error) {
-        console.error("NFC error:", error);
-        status.textContent = "⚠️ NFC scan failed. See console.";
-      }
-    } else {
-      alert("❌ Web NFC not supported in this browser.");
+        }
+
+        status.textContent = `✅ Tag scanned: "${itemName || itemId}"`;
+
+        // Redirect to inventory.html with query parameters
+        const params = new URLSearchParams();
+        if(itemId) params.append('itemId', itemId);
+        if(itemName) params.append('itemName', itemName);
+
+        const url = `inventory.html?${params.toString()}`;
+        window.location.href = url;
+      };
+    } catch (error) {
+      console.error("NFC error:", error);
+      status.textContent = "⚠️ NFC scan failed. See console.";
     }
+  } else {
+    alert("❌ Web NFC not supported in this browser.");
   }
+}
 </script>
 
 </body>
