@@ -6,17 +6,68 @@
   <title>Inventory Form</title>
   <style>
     body { font-family: Arial; padding: 20px; }
-    form { max-width: 400px; margin: auto; }
-    input { width: 100%; margin-bottom: 10px; padding: 8px; }
-    button { padding: 10px 20px; }
+    nav a { margin-right: 10px; }
+    /* Flex container for 2 columns */
+    #mainContainer {
+      display: flex;
+      gap: 40px;
+      max-width: 900px;
+      margin: 20px auto;
+      align-items: flex-start;
+    }
+    #leftColumn {
+      flex: 1;
+    }
+    #rightColumn {
+      width: 350px;
+    }
+    form input {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    form button {
+      padding: 10px 20px;
+      width: 100%;
+    }
     .success { color: green; }
     .error { color: red; }
-    #inventoryList { max-width: 400px; margin: 20px auto; }
-    #inventoryList h3 { margin-bottom: 10px; }
-    #inventoryList ul { list-style-type: none; padding-left: 0; }
-    #inventoryList li { background: #f9f9f9; margin-bottom: 8px; padding: 10px; border-radius: 4px; }
-    #inventoryList li strong { display: block; margin-bottom: 5px; }
-    #nfcStatus { text-align: center; margin: 10px 0; font-weight: bold; }
+    #inventoryList, #inventorySummary {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 6px;
+      box-shadow: 0 0 8px #ddd;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    #inventoryList h3, #inventorySummary h3 {
+      margin-bottom: 10px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 6px;
+    }
+    ul {
+      list-style-type: none;
+      padding-left: 0;
+      margin: 0;
+    }
+    li {
+      background: white;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px #ccc;
+    }
+    li strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 1.1em;
+    }
+    #nfcStatus {
+      text-align: center;
+      margin: 10px 0;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -31,29 +82,48 @@
 
 <h2>Inventory Submission</h2>
 
-<!-- ✅ NFC Scan Button -->
-<div style="text-align: center;">
+<!-- NFC Scan Button -->
+<div style="text-align: center; margin-bottom: 20px;">
   <button type="button" onclick="startNFC()">📲 Scan NFC Tag</button>
   <div id="nfcStatus"></div>
 </div>
 
-<form id="inventoryForm">
-  <input type="text" id="itemName" placeholder="Inventory Item Name" required />
-  <input type="number" id="amount" placeholder="Amount" min="1" required />
-  <button type="submit">Submit</button>
-</form>
+<!-- Main container: Left (form + submitted list) | Right (summary) -->
+<div id="mainContainer">
 
-<p id="responseMsg"></p>
+  <!-- Left Column -->
+  <div id="leftColumn">
 
-<div id="inventoryList">
-  <h3>Submitted Inventory:</h3>
-  <ul id="inventoryUl"></ul>
+    <form id="inventoryForm">
+      <input type="text" id="itemName" placeholder="Inventory Item Name" required />
+      <input type="text" id="brand" placeholder="Brand" required />
+      <input type="text" id="modelNumber" placeholder="Model Number" required />
+      <input type="text" id="serialNumber" placeholder="Serial Number" required />
+      <button type="submit">Submit</button>
+    </form>
+
+    <p id="responseMsg"></p>
+
+    <div id="inventoryList">
+      <h3>Submitted Inventory:</h3>
+      <ul id="inventoryUl"></ul>
+    </div>
+  </div>
+
+  <!-- Right Column -->
+  <div id="rightColumn">
+    <div id="inventorySummary">
+      <h3>Inventory Summary (Realtime):</h3>
+      <ul id="summaryUl"></ul>
+    </div>
+  </div>
+
 </div>
 
-<!-- ✅ Main Script -->
+<!-- Firebase and JS -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-  import { getDatabase, ref, push, serverTimestamp, onChildAdded } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+  import { getDatabase, ref, push, serverTimestamp, onChildAdded, onValue } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
@@ -67,41 +137,43 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
+  const inventoryRef = ref(db, 'inventory');
 
   const inventoryForm = document.getElementById('inventoryForm');
   const responseMsg = document.getElementById('responseMsg');
   const inventoryUl = document.getElementById('inventoryUl');
+  const summaryUl = document.getElementById('summaryUl');
 
-  const inventoryRef = ref(db, 'inventory');
-
-  // 🟢 Load inventory items
+  // Realtime detailed list
   onChildAdded(inventoryRef, (data) => {
-    const key = data.key;
-    const { itemName, amount, timestamp } = data.val();
+    const { itemName, brand, modelNumber, serialNumber, timestamp } = data.val();
 
-    const dateStr = (timestamp && typeof timestamp === "number")
+    const dateStr = timestamp
       ? new Date(timestamp).toLocaleString()
       : "Pending timestamp...";
 
     const li = document.createElement('li');
-    const strong = document.createElement('strong');
-    strong.textContent = `${itemName} (Key: ${key}) - Quantity: ${amount}`;
-    const time = document.createElement('em');
-    time.textContent = `Submitted: ${dateStr}`;
-    li.appendChild(strong);
-    li.appendChild(time);
+    li.innerHTML = `
+      <strong>${itemName}</strong>
+      <div>Brand: ${brand}</div>
+      <div>Model: ${modelNumber}</div>
+      <div>Serial #: ${serialNumber}</div>
+      <em>Submitted: ${dateStr}</em>
+    `;
     inventoryUl.prepend(li);
   });
 
-  // 🟢 Submit form
+  // Form submission
   inventoryForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const itemName = document.getElementById('itemName').value.trim();
-    const amount = parseInt(document.getElementById('amount').value.trim(), 10);
+    const brand = document.getElementById('brand').value.trim();
+    const modelNumber = document.getElementById('modelNumber').value.trim();
+    const serialNumber = document.getElementById('serialNumber').value.trim();
 
-    if (itemName === "" || isNaN(amount) || amount <= 0) {
-      responseMsg.textContent = "Please enter a valid item and amount.";
+    if (!itemName || !brand || !modelNumber || !serialNumber) {
+      responseMsg.textContent = "Please fill in all fields.";
       responseMsg.className = "error";
       return;
     }
@@ -109,7 +181,9 @@
     try {
       await push(inventoryRef, {
         itemName,
-        amount,
+        brand,
+        modelNumber,
+        serialNumber,
         timestamp: serverTimestamp()
       });
 
@@ -118,64 +192,85 @@
       inventoryForm.reset();
     } catch (error) {
       console.error("❌ Firebase write error:", error);
-      responseMsg.textContent = "Error submitting inventory. Check console.";
-      responseMsg.className = "error";       
+      responseMsg.textContent = "Error submitting inventory.";
+      responseMsg.className = "error";
     }
   });
 
-  window.startNFC = async function () {
-  const status = document.getElementById("nfcStatus");
+  // Realtime summary list (right column)
+  onValue(inventoryRef, (snapshot) => {
+    const data = snapshot.val();
+    summaryUl.innerHTML = '';
 
-  if ('NDEFReader' in window) {
-    try {
-      const ndef = new NDEFReader();
-      await ndef.scan();
-      status.textContent = "📡 NFC scanning... Tap a tag!";
-      console.log("NFC scanning started");
+    if (data) {
+      Object.values(data).forEach(item => {
+        const { itemName, brand, modelNumber, serialNumber } = item;
 
-      ndef.onreading = event => {
-        const decoder = new TextDecoder();
-        const { message, serialNumber } = event;
-
-        console.log(`📍 Serial Number: ${serialNumber}`);
-
-        let itemId = serialNumber || "";
-        let itemName = "";
-
-        for (const record of message.records) {
-          if (record.recordType === "text") {
-            const text = decoder.decode(record.data);
-            console.log(`📝 Text from tag: ${text}`);
-            itemName = text;
-            break;  // take first text record
-          }
-        }
-
-        status.textContent = `✅ Tag scanned: "${itemName || itemId}"`;
-
-        // Redirect to inventory.html with query parameters
-        const params = new URLSearchParams();
-        if(itemId) params.append('itemId', itemId);
-        if(itemName) params.append('itemName', itemName);
-
-        const url = `inventory.html?${params.toString()}`;
-        window.location.href = url;
-      };
-    } catch (error) {
-      console.error("NFC error:", error);
-      status.textContent = "⚠️ NFC scan failed. See console.";
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <strong>${itemName}</strong>
+          <div>Brand: ${brand}</div>
+          <div>Model: ${modelNumber}</div>
+          <div>Serial #: ${serialNumber}</div>
+        `;
+        summaryUl.appendChild(li);
+      });
+    } else {
+      summaryUl.innerHTML = '<li>No inventory items found.</li>';
     }
-  } else {
-    alert("❌ Web NFC not supported in this browser.");
-  }
-}
+  });
+
+  // NFC Scan function (optional)
+  window.startNFC = async function () {
+    const status = document.getElementById("nfcStatus");
+
+    if ('NDEFReader' in window) {
+      try {
+        const ndef = new NDEFReader();
+        await ndef.scan();
+        status.textContent = "📡 NFC scanning... Tap a tag!";
+
+        ndef.onreading = event => {
+          const decoder = new TextDecoder();
+          const { message, serialNumber } = event;
+
+          let itemName = "";
+
+          for (const record of message.records) {
+            if (record.recordType === "text") {
+              itemName = decoder.decode(record.data);
+              break;
+            }
+          }
+
+          status.textContent = `✅ Tag scanned: "${itemName || serialNumber}"`;
+
+          const params = new URLSearchParams();
+          if (serialNumber) params.append('serialNumber', serialNumber);
+          if (itemName) params.append('itemName', itemName);
+
+          const url = `inventory.html?${params.toString()}`;
+          window.location.href = url;
+        };
+      } catch (error) {
+        console.error("NFC error:", error);
+        status.textContent = "⚠️ NFC scan failed.";
+      }
+    } else {
+      alert("❌ Web NFC not supported in this browser.");
+    }
+  };
+
+  // Prefill form from URL params (optional)
+  window.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const itemName = params.get('itemName');
+    const serialNumber = params.get('serialNumber');
+    if (itemName) document.getElementById('itemName').value = itemName;
+    if (serialNumber) document.getElementById('serialNumber').value = serialNumber;
+  });
 </script>
 
 </body>
 </html>
-
-
-
-
-
 
