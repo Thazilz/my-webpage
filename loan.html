@@ -6,13 +6,15 @@
   <title>Loan Form</title>
   <style>
     body { font-family: Arial; padding: 20px; }
+    nav a { margin-right: 10px; }
     form { max-width: 500px; margin: auto; background: #f4f4f4; padding: 20px; border-radius: 8px; }
     input, select { width: 100%; margin-bottom: 10px; padding: 10px; }
     button { padding: 10px 20px; background-color: #28a745; color: white; border: none; cursor: pointer; }
-    button:hover { background-color: #218838; }
+    button:disabled { background-color: #ccc; cursor: not-allowed; }
+    button:hover:enabled { background-color: #218838; }
     .success { color: green; text-align: center; }
     .error { color: red; text-align: center; }
-    #loanList { max-width: 500px; margin: 30px auto; }
+    #loanList { max-width: 600px; margin: 30px auto; }
     #loanList ul { list-style: none; padding: 0; }
     #loanList li { background: #e9ecef; margin-bottom: 10px; padding: 10px; border-radius: 5px; }
   </style>
@@ -29,30 +31,33 @@
 
 <h2>Loan an Item</h2>
 
+<p><a href="inventory.html">🔙 Back to Inventory</a></p>
+
 <form id="loanForm">
   <input type="text" id="borrowerName" placeholder="Borrower's Name" required />
   <input type="text" id="department" placeholder="Department" required />
   <input type="text" id="itemId" placeholder="Item ID" required />
   <input type="text" id="model" placeholder="Model" required />
   <input type="text" id="brand" placeholder="Brand" required />
-  <input type="number" id="quantity" placeholder="Quantity" required min="1" />
   <input type="date" id="loanDate" required />
   <input type="date" id="returnDate" required />
-  <button type="submit">Submit Loan</button>
+  <button type="submit" disabled>Submit Loan</button>
 </form>
-
 
 <p id="loanResponseMsg"></p>
 
 <div id="loanList">
-  <h3>Loan Records</h3>
+  <h3>Active Loan Records</h3>
   <ul id="loanUl"></ul>
 </div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-  import { getDatabase, ref, push, serverTimestamp, onChildAdded } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+  import {
+    getDatabase, ref, push, get, onChildAdded, onValue, query, orderByChild, equalTo, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
 
+  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
     authDomain: "my-webpage-93c94.firebaseapp.com",
@@ -65,66 +70,173 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
+
+  const loansRef = ref(db, 'loans');
+  const inventoryRef = ref(db, 'inventory');
+
   const loanForm = document.getElementById('loanForm');
   const loanResponseMsg = document.getElementById('loanResponseMsg');
   const loanUl = document.getElementById('loanUl');
+  const itemIdInput = document.getElementById('itemId');
+  const modelInput = document.getElementById('model');
+  const brandInput = document.getElementById('brand');
+  const submitButton = loanForm.querySelector('button');
 
-  const loansRef = ref(db, 'loans');
+  // Store inventory in a Map for quick lookup
+  const inventoryMap = new Map();
+  let inventoryLoaded = false;
 
-  onChildAdded(loansRef, (data) => {
-    const loan = data.val();
-
-    const li = document.createElement('li');
-    li.innerHTML = `
-  <strong>${loan.borrowerName}</strong> (${loan.department})<br>
-  <em>Item ID:</em> ${loan.itemId}<br>
-  <em>Model:</em> ${loan.model} | <em>Brand:</em> ${loan.brand} | <em>Qty:</em> ${loan.quantity}<br>
-  <em>Loan Date:</em> ${loan.loanDate} | <em>Return Date:</em> ${loan.returnDate}
-`;
-    loanUl.prepend(li);
+  // Load inventory data once and populate inventoryMap
+  onValue(inventoryRef, (snapshot) => {
+    inventoryMap.clear();
+    const data = snapshot.val();
+    if (data) {
+      Object.values(data).forEach(item => {
+        const key = (item.serialNumber || item.itemId || "").trim();
+        if (key) {
+          inventoryMap.set(key, item);
+        }
+      });
+    }
+    inventoryLoaded = true;
   });
 
+  // Validation function for itemId input
+  async function validateItemId() {
+    const itemId = itemIdInput.value.trim();
+    loanResponseMsg.textContent = "";
+    loanResponseMsg.className = "";
+
+    if (!inventoryLoaded) {
+      submitButton.disabled = true;
+      return;
+    }
+
+    if (!itemId || !inventoryMap.has(itemId)) {
+      submitButton.disabled = true;
+      loanResponseMsg.textContent = "❌ Item ID not found in inventory.";
+      loanResponseMsg.className = "error";
+      return;
+    }
+
+    // Prefill model and brand from inventory if present
+    const item = inventoryMap.get(itemId);
+    if (item) {
+      modelInput.value = item.modelNumber || "";
+      brandInput.value = item.brand || "";
+    }
+
+    // Check if item is already on active loan
+    const activeLoanQuery = query(loansRef, orderByChild("itemId"), equalTo(itemId));
+    const snapshot = await get(activeLoanQuery);
+    let alreadyLoaned = false;
+
+    snapshot.forEach(child => {
+      if (child.val().status === "active") {
+        alreadyLoaned = true;
+      }
+    });
+
+    if (alreadyLoaned) {
+      submitButton.disabled = true;
+      loanResponseMsg.textContent = "❌ Item is already on loan.";
+      loanResponseMsg.className = "error";
+    } else {
+      submitButton.disabled = false;
+    }
+  }
+
+  // Validate on itemId input change
+  itemIdInput.addEventListener('input', () => {
+    validateItemId();
+  });
+
+  // Submit loan
   loanForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const borrowerName = document.getElementById('borrowerName').value.trim();
     const department = document.getElementById('department').value.trim();
-    const model = document.getElementById('model').value.trim();
-    const brand = document.getElementById('brand').value.trim();
-    const quantity = parseInt(document.getElementById('quantity').value);
-    const itemId = document.getElementById('itemId').value.trim();
+    const itemId = itemIdInput.value.trim();
+    const model = modelInput.value.trim();
+    const brand = brandInput.value.trim();
     const loanDate = document.getElementById('loanDate').value;
     const returnDate = document.getElementById('returnDate').value;
 
-    if (!borrowerName || !department || !itemId || !model || !brand || !quantity || !loanDate || !returnDate) {
-  loanResponseMsg.textContent = "All fields are required.";
-  loanResponseMsg.className = "error";
-  return;
-}
-
     try {
       await push(loansRef, {
-  borrowerName,
-  department,
-  itemId,
-  model,
-  brand,
-  quantity,
-  loanDate,
-  returnDate,
-  timestamp: serverTimestamp()
-});
+        borrowerName,
+        department,
+        itemId,
+        model,
+        brand,
+        loanDate,
+        returnDate,
+        status: "active",
+        timestamp: serverTimestamp()
+      });
 
-      loanResponseMsg.textContent = "Loan record submitted!";
+      loanResponseMsg.textContent = "✅ Loan record submitted!";
       loanResponseMsg.className = "success";
       loanForm.reset();
+      submitButton.disabled = true;
     } catch (err) {
       console.error("Loan submission error:", err);
-      loanResponseMsg.textContent = "Error submitting loan. Check console.";
+      loanResponseMsg.textContent = "❌ Error submitting loan.";
       loanResponseMsg.className = "error";
+    }
+  });
+
+  // Display only active loans
+  onChildAdded(loansRef, (data) => {
+    const loan = data.val();
+    if (loan.status !== "active") return;
+
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <strong>${loan.borrowerName}</strong> (${loan.department})<br>
+      <em>Item ID:</em> ${loan.itemId}<br>
+      <em>Model:</em> ${loan.model} | <em>Brand:</em> ${loan.brand}<br>
+      <em>Loan Date:</em> ${loan.loanDate} | <em>Return Date:</em> ${loan.returnDate}<br>
+      <em>Status:</em> ${loan.status}
+    `;
+    loanUl.prepend(li);
+  });
+
+  // Prefill from URL parameters *after* inventory is loaded
+  window.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const itemId = params.get('itemId');
+    const model = params.get('model');
+    const brand = params.get('brand');
+
+    if (itemId) {
+      // Wait until inventory is loaded before setting inputs and validating
+      const waitForInventory = () => {
+        if (inventoryLoaded) {
+          itemIdInput.value = itemId;
+
+          // Only set model and brand if inventory does not already have it
+          const item = inventoryMap.get(itemId);
+          if (!item) {
+            if (model) modelInput.value = model;
+            if (brand) brandInput.value = brand;
+          }
+
+          // Trigger validation manually
+          validateItemId();
+        } else {
+          setTimeout(waitForInventory, 100);
+        }
+      };
+      waitForInventory();
     }
   });
 </script>
 
 </body>
 </html>
+
+
+
+
