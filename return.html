@@ -44,7 +44,6 @@
   <textarea id="returnNotes"></textarea>
 
   <button type="button" id="scanNfcBtn">📲 Scan NFC Tag</button> |
-
   <button type="submit">Submit Return</button>
 </form>
 
@@ -58,7 +57,19 @@
 <script type="module">
   // Firebase imports
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-  import { getDatabase, ref, push, serverTimestamp, onChildAdded } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+  import {
+    getDatabase,
+    ref,
+    push,
+    get,
+    update,
+    query,
+    orderByChild,
+    equalTo,
+    serverTimestamp,
+    onChildAdded,
+    onChildChanged
+  } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
 
   // Firebase config
   const firebaseConfig = {
@@ -71,21 +82,23 @@
     appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
   };
 
+  // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const returnRef = ref(db, 'returns');
+  const loansRef = ref(db, 'loans');
 
   const returnForm = document.getElementById('returnForm');
   const returnResponse = document.getElementById('returnResponse');
   const returnUl = document.getElementById('returnUl');
 
-  // Form submission
+  // Submit return form
   returnForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const name = document.getElementById('returnName').value.trim();
     const email = document.getElementById('returnEmail').value.trim();
-    const item = document.getElementById('itemReturned').value.trim();
+    const item = document.getElementById('itemReturned').value.trim().toLowerCase(); // Normalize
     const notes = document.getElementById('returnNotes').value.trim();
 
     if (!name || !email || !item) {
@@ -95,6 +108,26 @@
     }
 
     try {
+      // Check for active loan for the item
+      const loanQuery = query(loansRef, orderByChild("itemId"), equalTo(item));
+      const loanSnapshot = await get(loanQuery);
+
+      let activeLoanKey = null;
+
+      loanSnapshot.forEach(child => {
+        const loan = child.val();
+        if (loan.status === "active") {
+          activeLoanKey = child.key;
+        }
+      });
+
+      if (!activeLoanKey) {
+        returnResponse.textContent = "❌ No active loan found for this item.";
+        returnResponse.className = "error";
+        return;
+      }
+
+      // Submit return record
       await push(returnRef, {
         name,
         email,
@@ -103,25 +136,38 @@
         timestamp: serverTimestamp()
       });
 
-      returnResponse.textContent = "Return submitted successfully!";
+      // Update loan status to "returned"
+      await update(ref(db, `loans/${activeLoanKey}`), {
+        status: "returned"
+      });
+
+      returnResponse.textContent = "✅ Return submitted and loan marked as returned!";
       returnResponse.className = "success";
       returnForm.reset();
+
     } catch (error) {
-      console.error("❌ Firebase write error:", error);
-      returnResponse.textContent = "Error submitting return. Check console.";
+      console.error("❌ Firebase error:", error);
+      returnResponse.textContent = "Error submitting return or updating loan.";
       returnResponse.className = "error";
     }
   });
 
-  // Display return records
+  // Display return records - handle new returns
   onChildAdded(returnRef, (data) => {
     const { name, email, item, notes, timestamp } = data.val();
 
-    const dateStr = timestamp && timestamp.seconds
-      ? new Date(timestamp.seconds * 1000).toLocaleString()
-      : "Pending timestamp...";
+    let dateStr = "Pending timestamp...";
+
+    if (timestamp) {
+      if (typeof timestamp === 'object' && timestamp.seconds) {
+        dateStr = new Date(timestamp.seconds * 1000).toLocaleString();
+      } else if (typeof timestamp === 'number') {
+        dateStr = new Date(timestamp).toLocaleString();
+      }
+    }
 
     const li = document.createElement('li');
+    li.id = data.key;  // assign ID for updating later
     li.innerHTML = `
       <strong>${name} (${email})</strong>
       <em>${dateStr}</em>
@@ -131,7 +177,31 @@
     returnUl.prepend(li);
   });
 
-  // Web NFC scanning
+  // Update existing return record when timestamp becomes available
+  onChildChanged(returnRef, (data) => {
+    const { name, email, item, notes, timestamp } = data.val();
+
+    let dateStr = "Pending timestamp...";
+    if (timestamp) {
+      if (typeof timestamp === 'object' && timestamp.seconds) {
+        dateStr = new Date(timestamp.seconds * 1000).toLocaleString();
+      } else if (typeof timestamp === 'number') {
+        dateStr = new Date(timestamp).toLocaleString();
+      }
+    }
+
+    const li = document.getElementById(data.key);
+    if (li) {
+      li.innerHTML = `
+        <strong>${name} (${email})</strong>
+        <em>${dateStr}</em>
+        <p><strong>Item:</strong> ${item}</p>
+        ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ""}
+      `;
+    }
+  });
+
+  // NFC Scan Handler
   const scanNfcBtn = document.getElementById('scanNfcBtn');
 
   scanNfcBtn.addEventListener('click', async () => {
@@ -148,7 +218,7 @@
           for (const record of message.records) {
             if (record.recordType === "text") {
               const textDecoder = new TextDecoder(record.encoding || "utf-8");
-              const data = textDecoder.decode(record.data);
+              const data = textDecoder.decode(record.data).trim().toLowerCase();
               document.getElementById('itemReturned').value = data;
               returnResponse.textContent = `Scanned: ${data}`;
               returnResponse.className = "success";
@@ -176,4 +246,5 @@
 
 </body>
 </html>
+
 
