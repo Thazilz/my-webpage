@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Approve Loans</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background-color: #f8f9fa; }
+    nav a { margin-right: 10px; }
+    h2 { text-align: center; }
+    .loan-item {
+      background: #fff;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border-left: 5px solid orange;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .loan-item p { margin: 5px 0; }
+    button {
+      padding: 8px 15px;
+      margin-right: 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .approve { background-color: #28a745; color: white; }
+    .reject { background-color: #dc3545; color: white; }
+    .approve:hover { background-color: #218838; }
+    .reject:hover { background-color: #c82333; }
+    #statusMsg { text-align: center; margin-top: 20px; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html">Home</a> |
+  <a href="inventory.html">Inventory</a> |
+  <a href="loan.html">Loan</a> |
+  <a href="return.html">Return</a> |
+  <a href="approve.html"><strong>Approvals</strong></a>
+</nav>
+
+<h2>Pending Loan Approvals</h2>
+<div id="loanContainer"></div>
+<p id="statusMsg"></p>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+  import {
+    getDatabase, ref, onValue, update
+  } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+
+  // Firebase Config (same as your loan.html)
+  const firebaseConfig = {
+    apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
+    authDomain: "my-webpage-93c94.firebaseapp.com",
+    databaseURL: "https://my-webpage-93c94-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "my-webpage-93c94",
+    storageBucket: "my-webpage-93c94.appspot.com",
+    messagingSenderId: "959385466155",
+    appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const loansRef = ref(db, "loans");
+  const loanContainer = document.getElementById("loanContainer");
+  const statusMsg = document.getElementById("statusMsg");
+
+  // Load pending approvals
+  onValue(loansRef, (snapshot) => {
+    loanContainer.innerHTML = "";
+    const data = snapshot.val();
+    if (!data) {
+      loanContainer.innerHTML = "<p>No pending approvals.</p>";
+      return;
+    }
+
+    const pendingLoans = Object.entries(data).filter(([id, loan]) => loan.status === "pendingApproval");
+
+    if (pendingLoans.length === 0) {
+      loanContainer.innerHTML = "<p>No pending approvals.</p>";
+      return;
+    }
+
+    pendingLoans.forEach(([id, loan]) => {
+      const div = document.createElement("div");
+      div.className = "loan-item";
+      div.innerHTML = `
+        <p><strong>${loan.borrowerName}</strong> (${loan.department})</p>
+        <p><em>Item ID:</em> ${loan.itemId}</p>
+        <p><em>Model:</em> ${loan.model} | <em>Brand:</em> ${loan.brand}</p>
+        <p><em>Loan Date:</em> ${loan.loanDate} | <em>Return Date:</em> ${loan.returnDate}</p>
+        <button class="approve">Approve</button>
+        <button class="reject">Reject</button>
+      `;
+
+      // Approve button logic with confirmation
+      div.querySelector(".approve").addEventListener("click", async () => {
+        const confirmApprove = confirm(`Are you sure you want to approve the loan for item ${loan.itemId}?`);
+        if (!confirmApprove) return; // Cancel action if not confirmed
+
+        try {
+          await update(ref(db, "loans/" + id), { status: "active" });
+          statusMsg.textContent = `✅ Loan for ${loan.itemId} approved.`;
+          statusMsg.style.color = "green";
+        } catch (err) {
+          console.error(err);
+          statusMsg.textContent = "❌ Error approving loan.";
+          statusMsg.style.color = "red";
+        }
+      });
+
+      // Reject button logic with confirmation
+      div.querySelector(".reject").addEventListener("click", async () => {
+        const confirmReject = confirm(`Are you sure you want to reject the loan for item ${loan.itemId}?`);
+        if (!confirmReject) return; // Cancel action if not confirmed
+
+        try {
+          await update(ref(db, "loans/" + id), { status: "rejected" });
+          statusMsg.textContent = `🚫 Loan for ${loan.itemId} rejected.`;
+          statusMsg.style.color = "orange";
+        } catch (err) {
+          console.error(err);
+          statusMsg.textContent = "❌ Error rejecting loan.";
+          statusMsg.style.color = "red";
+        }
+      });
+
+      loanContainer.appendChild(div);
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -26,7 +26,8 @@
   <a href="inventory.html">Inventory</a> |
   <a href="loan.html">Loan</a> |
   <a href="return.html">Return</a> |
-  <a href="contact.html">Contact</a>
+  <a href="contact.html">Contact</a>|
+  <a href="approve.html"><strong>Approvals</strong></a>
 </nav>
 
 <h2>Loan an Item</h2>
@@ -54,7 +55,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
   import {
-    getDatabase, ref, push, get, onChildAdded, onValue, query, orderByChild, equalTo, serverTimestamp
+    getDatabase, ref, push, get, onChildAdded, onValue, query, orderByChild, equalTo, update, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
 
   // Firebase config
@@ -82,26 +83,22 @@
   const brandInput = document.getElementById('brand');
   const submitButton = loanForm.querySelector('button');
 
-  // Store inventory in a Map for quick lookup
   const inventoryMap = new Map();
   let inventoryLoaded = false;
 
-  // Load inventory data once and populate inventoryMap
+  // Load inventory data once
   onValue(inventoryRef, (snapshot) => {
     inventoryMap.clear();
     const data = snapshot.val();
     if (data) {
       Object.values(data).forEach(item => {
         const key = (item.serialNumber || item.itemId || "").trim();
-        if (key) {
-          inventoryMap.set(key, item);
-        }
+        if (key) inventoryMap.set(key, item);
       });
     }
     inventoryLoaded = true;
   });
 
-  // Validation function for itemId input
   async function validateItemId() {
     const itemId = itemIdInput.value.trim();
     loanResponseMsg.textContent = "";
@@ -119,39 +116,37 @@
       return;
     }
 
-    // Prefill model and brand from inventory if present
+    // Prefill model/brand
     const item = inventoryMap.get(itemId);
     if (item) {
       modelInput.value = item.modelNumber || "";
       brandInput.value = item.brand || "";
     }
 
-    // Check if item is already on active loan
+    // Check if item already on active or pending loan
     const activeLoanQuery = query(loansRef, orderByChild("itemId"), equalTo(itemId));
     const snapshot = await get(activeLoanQuery);
-    let alreadyLoaned = false;
+    let unavailable = false;
 
     snapshot.forEach(child => {
-      if (child.val().status === "active") {
-        alreadyLoaned = true;
+      const s = child.val().status;
+      if (s === "active" || s === "pendingApproval") {
+        unavailable = true;
       }
     });
 
-    if (alreadyLoaned) {
+    if (unavailable) {
       submitButton.disabled = true;
-      loanResponseMsg.textContent = "❌ Item is already on loan.";
+      loanResponseMsg.textContent = "❌ Item is already on loan or pending approval.";
       loanResponseMsg.className = "error";
     } else {
       submitButton.disabled = false;
     }
   }
 
-  // Validate on itemId input change
-  itemIdInput.addEventListener('input', () => {
-    validateItemId();
-  });
+  itemIdInput.addEventListener('input', validateItemId);
 
-  // Submit loan
+  // Submit loan for approval
   loanForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -172,11 +167,11 @@
         brand,
         loanDate,
         returnDate,
-        status: "active",
+        status: "pendingApproval",
         timestamp: serverTimestamp()
       });
 
-      loanResponseMsg.textContent = "✅ Loan record submitted!";
+      loanResponseMsg.textContent = "✅ Loan submitted for approval.";
       loanResponseMsg.className = "success";
       loanForm.reset();
       submitButton.disabled = true;
@@ -203,7 +198,7 @@
     loanUl.prepend(li);
   });
 
-  // Prefill from URL parameters *after* inventory is loaded
+  // Prefill from URL parameters
   window.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const itemId = params.get('itemId');
@@ -211,19 +206,14 @@
     const brand = params.get('brand');
 
     if (itemId) {
-      // Wait until inventory is loaded before setting inputs and validating
       const waitForInventory = () => {
         if (inventoryLoaded) {
           itemIdInput.value = itemId;
-
-          // Only set model and brand if inventory does not already have it
           const item = inventoryMap.get(itemId);
           if (!item) {
             if (model) modelInput.value = model;
             if (brand) brandInput.value = brand;
           }
-
-          // Trigger validation manually
           validateItemId();
         } else {
           setTimeout(waitForInventory, 100);
@@ -233,9 +223,6 @@
     }
   });
 </script>
-
-</body>
-</html>
 
 
 
