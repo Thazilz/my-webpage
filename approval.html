@@ -29,17 +29,23 @@
     .approve:hover { background-color: #218838; }
     .reject:hover { background-color: #c82333; }
     #statusMsg { text-align: center; margin-top: 20px; font-weight: bold; }
+    #logoutBtn { float: right; background-color: #6c757d; color: white; }
+    #logoutBtn:hover { background-color: #5a6268; }
   </style>
 </head>
 <body>
 
+<!-- Navigation -->
 <nav>
   <a href="index.html">Home</a> |
   <a href="inventory.html">Inventory</a> |
   <a href="loan.html">Loan</a> |
   <a href="return.html">Return</a> |
-  <a href="approve.html"><strong>Approvals</strong></a>
+  <a href="approval.html">Approvals</a> |
+  <a href="contact.html">Contact</a> |
+  <button id="logoutBtn" style="float:right; padding:6px 12px;">Logout</button>
 </nav>
+<hr>
 
 <h2>Pending Loan Approvals</h2>
 <div id="loanContainer"></div>
@@ -47,11 +53,12 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-  import {
-    getDatabase, ref, onValue, update
-  } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+  import { 
+    getAuth, onAuthStateChanged, signOut 
+  } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+  import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
 
-  // Firebase Config (same as your loan.html)
+  // === Firebase Config ===
   const firebaseConfig = {
     apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
     authDomain: "my-webpage-93c94.firebaseapp.com",
@@ -63,74 +70,106 @@
   };
 
   const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
   const db = getDatabase(app);
-  const loansRef = ref(db, "loans");
+
   const loanContainer = document.getElementById("loanContainer");
   const statusMsg = document.getElementById("statusMsg");
+  const logoutBtn = document.getElementById("logoutBtn");
 
-  // Load pending approvals
-  onValue(loansRef, (snapshot) => {
-    loanContainer.innerHTML = "";
-    const data = snapshot.val();
-    if (!data) {
-      loanContainer.innerHTML = "<p>No pending approvals.</p>";
-      return;
-    }
-
-    const pendingLoans = Object.entries(data).filter(([id, loan]) => loan.status === "pendingApproval");
-
-    if (pendingLoans.length === 0) {
-      loanContainer.innerHTML = "<p>No pending approvals.</p>";
-      return;
-    }
-
-    pendingLoans.forEach(([id, loan]) => {
-      const div = document.createElement("div");
-      div.className = "loan-item";
-      div.innerHTML = `
-        <p><strong>${loan.borrowerName}</strong> (${loan.department})</p>
-        <p><em>Item ID:</em> ${loan.itemId}</p>
-        <p><em>Model:</em> ${loan.model} | <em>Brand:</em> ${loan.brand}</p>
-        <p><em>Loan Date:</em> ${loan.loanDate} | <em>Return Date:</em> ${loan.returnDate}</p>
-        <button class="approve">Approve</button>
-        <button class="reject">Reject</button>
-      `;
-
-      // Approve button logic with confirmation
-      div.querySelector(".approve").addEventListener("click", async () => {
-        const confirmApprove = confirm(`Are you sure you want to approve the loan for item ${loan.itemId}?`);
-        if (!confirmApprove) return; // Cancel action if not confirmed
-
-        try {
-          await update(ref(db, "loans/" + id), { status: "active" });
-          statusMsg.textContent = `✅ Loan for ${loan.itemId} approved.`;
-          statusMsg.style.color = "green";
-        } catch (err) {
-          console.error(err);
-          statusMsg.textContent = "❌ Error approving loan.";
-          statusMsg.style.color = "red";
-        }
-      });
-
-      // Reject button logic with confirmation
-      div.querySelector(".reject").addEventListener("click", async () => {
-        const confirmReject = confirm(`Are you sure you want to reject the loan for item ${loan.itemId}?`);
-        if (!confirmReject) return; // Cancel action if not confirmed
-
-        try {
-          await update(ref(db, "loans/" + id), { status: "rejected" });
-          statusMsg.textContent = `🚫 Loan for ${loan.itemId} rejected.`;
-          statusMsg.style.color = "orange";
-        } catch (err) {
-          console.error(err);
-          statusMsg.textContent = "❌ Error rejecting loan.";
-          statusMsg.style.color = "red";
-        }
-      });
-
-      loanContainer.appendChild(div);
+  // === Logout button ===
+  logoutBtn.addEventListener("click", () => {
+    signOut(auth).then(() => {
+      window.location.href = "login.html";
     });
   });
+
+  // === Protect page (admin only) ===
+  onAuthStateChanged(auth, async user => {
+    if (!user) {
+      alert("Access denied. Please log in first.");
+      window.location.href = "login.html";
+      return;
+    }
+
+    // Check custom claim 'admin'
+    const token = await user.getIdTokenResult();
+    const isAdmin = !!token.claims.admin;
+
+    if (!isAdmin) {
+      alert("You are not authorized to access this page.");
+      window.location.href = "index.html";
+      return;
+    }
+
+    // Load loans only for admin
+    loadPendingLoans();
+  });
+
+  // === Function to load pending approvals ===
+  function loadPendingLoans() {
+    const loansRef = ref(db, "loans");
+    onValue(loansRef, snapshot => {
+      loanContainer.innerHTML = "";
+      const data = snapshot.val();
+      if (!data) {
+        loanContainer.innerHTML = "<p>No pending approvals.</p>";
+        return;
+      }
+
+      const pendingLoans = Object.entries(data).filter(([id, loan]) => loan.status === "pendingApproval");
+
+      if (pendingLoans.length === 0) {
+        loanContainer.innerHTML = "<p>No pending approvals.</p>";
+        return;
+      }
+
+      pendingLoans.forEach(([id, loan]) => {
+        const div = document.createElement("div");
+        div.className = "loan-item";
+        div.innerHTML = `
+          <p><strong>${loan.borrowerName}</strong> (${loan.department})</p>
+          <p><em>Item ID:</em> ${loan.itemId}</p>
+          <p><em>Model:</em> ${loan.model} | <em>Brand:</em> ${loan.brand}</p>
+          <p><em>Loan Date:</em> ${loan.loanDate} | <em>Return Date:</em> ${loan.returnDate}</p>
+          <button class="approve">Approve</button>
+          <button class="reject">Reject</button>
+        `;
+
+        // Approve button
+        div.querySelector(".approve").addEventListener("click", async () => {
+          if (!confirm(`Approve loan for item ${loan.itemId}?`)) return;
+          try {
+            await update(ref(db, "loans/" + id), { status: "active" });
+            loanContainer.removeChild(div);
+            statusMsg.textContent = `✅ Loan for ${loan.itemId} approved.`;
+            statusMsg.style.color = "green";
+          } catch (err) {
+            console.error(err);
+            statusMsg.textContent = "❌ Error approving loan.";
+            statusMsg.style.color = "red";
+          }
+        });
+
+        // Reject button
+        div.querySelector(".reject").addEventListener("click", async () => {
+          if (!confirm(`Reject loan for item ${loan.itemId}?`)) return;
+          try {
+            await update(ref(db, "loans/" + id), { status: "rejected" });
+            loanContainer.removeChild(div);
+            statusMsg.textContent = `🚫 Loan for ${loan.itemId} rejected.`;
+            statusMsg.style.color = "orange";
+          } catch (err) {
+            console.error(err);
+            statusMsg.textContent = "❌ Error rejecting loan.";
+            statusMsg.style.color = "red";
+          }
+        });
+
+        loanContainer.appendChild(div);
+      });
+    });
+  }
 </script>
 
 </body>

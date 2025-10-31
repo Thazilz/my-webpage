@@ -6,11 +6,39 @@
   <title>Return Form with NFC</title>
   <style>
     body { font-family: Arial; padding: 20px; }
+
+    /* Navigation styles - plain like index.html */
+    nav {
+      font-family: Arial, sans-serif;
+      margin-bottom: 20px;
+    }
+    nav a {
+      color: black;
+      text-decoration: none;
+      margin-right: 10px;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    nav button {
+      font-family: Arial, sans-serif;
+      padding: 6px 12px;
+      cursor: pointer;
+      background: none;
+      border: 1px solid #ccc;
+      color: black;
+      float: right;
+    }
+    nav button:hover {
+      background: #f0f0f0;
+    }
+
     form { max-width: 400px; margin: auto; }
     input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; }
-    button { padding: 10px 20px; margin-bottom: 10px; }
+    button[type="submit"], #scanNfcBtn { padding: 10px 20px; margin-bottom: 10px; }
     .success { color: green; }
     .error { color: red; }
+
     #returnList { max-width: 400px; margin: 20px auto; }
     #returnList h3 { margin-bottom: 10px; }
     #returnList ul { list-style-type: none; padding-left: 0; }
@@ -20,13 +48,17 @@
 </head>
 <body>
 
+<!-- Hardcoded Navigation -->
 <nav>
   <a href="index.html">Home</a> |
   <a href="inventory.html">Inventory</a> |
   <a href="loan.html">Loan</a> |
   <a href="return.html">Return</a> |
-  <a href="contact.html">Contact</a>
+  <a href="approval.html">Approvals</a> |
+  <a href="contact.html">Contact</a> |
+  <button id="logoutBtn">Logout</button>
 </nav>
+<hr>
 
 <h2>Return Equipment</h2>
 
@@ -70,6 +102,7 @@
     onChildAdded,
     onChildChanged
   } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
   // Firebase config
   const firebaseConfig = {
@@ -85,6 +118,26 @@
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
+  const auth = getAuth(app);
+
+  // Redirect unauthenticated users
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      window.location.href = "login.html";
+    }
+  });
+
+  // Logout button
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      window.location.href = "login.html";
+    } catch (err) {
+      console.error("Logout failed:", err);
+      alert("❌ Logout failed");
+    }
+  });
+
   const returnRef = ref(db, 'returns');
   const loansRef = ref(db, 'loans');
 
@@ -98,7 +151,7 @@
 
     const name = document.getElementById('returnName').value.trim();
     const email = document.getElementById('returnEmail').value.trim();
-    const item = document.getElementById('itemReturned').value.trim().toLowerCase(); // Normalize
+    const item = document.getElementById('itemReturned').value.trim().toLowerCase();
     const notes = document.getElementById('returnNotes').value.trim();
 
     if (!name || !email || !item) {
@@ -108,7 +161,6 @@
     }
 
     try {
-      // Check for active loan for the item
       const loanQuery = query(loansRef, orderByChild("itemId"), equalTo(item));
       const loanSnapshot = await get(loanQuery);
 
@@ -116,9 +168,7 @@
 
       loanSnapshot.forEach(child => {
         const loan = child.val();
-        if (loan.status === "active") {
-          activeLoanKey = child.key;
-        }
+        if (loan.status === "active") activeLoanKey = child.key;
       });
 
       if (!activeLoanKey) {
@@ -127,7 +177,6 @@
         return;
       }
 
-      // Submit return record
       await push(returnRef, {
         name,
         email,
@@ -136,10 +185,7 @@
         timestamp: serverTimestamp()
       });
 
-      // Update loan status to "returned"
-      await update(ref(db, `loans/${activeLoanKey}`), {
-        status: "returned"
-      });
+      await update(ref(db, `loans/${activeLoanKey}`), { status: "returned" });
 
       returnResponse.textContent = "✅ Return submitted and loan marked as returned!";
       returnResponse.className = "success";
@@ -152,22 +198,18 @@
     }
   });
 
-  // Display return records - handle new returns
+  // Display return records
   onChildAdded(returnRef, (data) => {
     const { name, email, item, notes, timestamp } = data.val();
 
     let dateStr = "Pending timestamp...";
-
     if (timestamp) {
-      if (typeof timestamp === 'object' && timestamp.seconds) {
-        dateStr = new Date(timestamp.seconds * 1000).toLocaleString();
-      } else if (typeof timestamp === 'number') {
-        dateStr = new Date(timestamp).toLocaleString();
-      }
+      if (typeof timestamp === 'object' && timestamp.seconds) dateStr = new Date(timestamp.seconds * 1000).toLocaleString();
+      else if (typeof timestamp === 'number') dateStr = new Date(timestamp).toLocaleString();
     }
 
     const li = document.createElement('li');
-    li.id = data.key;  // assign ID for updating later
+    li.id = data.key;
     li.innerHTML = `
       <strong>${name} (${email})</strong>
       <em>${dateStr}</em>
@@ -177,17 +219,13 @@
     returnUl.prepend(li);
   });
 
-  // Update existing return record when timestamp becomes available
   onChildChanged(returnRef, (data) => {
     const { name, email, item, notes, timestamp } = data.val();
 
     let dateStr = "Pending timestamp...";
     if (timestamp) {
-      if (typeof timestamp === 'object' && timestamp.seconds) {
-        dateStr = new Date(timestamp.seconds * 1000).toLocaleString();
-      } else if (typeof timestamp === 'number') {
-        dateStr = new Date(timestamp).toLocaleString();
-      }
+      if (typeof timestamp === 'object' && timestamp.seconds) dateStr = new Date(timestamp.seconds * 1000).toLocaleString();
+      else if (typeof timestamp === 'number') dateStr = new Date(timestamp).toLocaleString();
     }
 
     const li = document.getElementById(data.key);
@@ -203,7 +241,6 @@
 
   // NFC Scan Handler
   const scanNfcBtn = document.getElementById('scanNfcBtn');
-
   scanNfcBtn.addEventListener('click', async () => {
     if ('NDEFReader' in window) {
       const reader = new NDEFReader();
@@ -214,8 +251,7 @@
         returnResponse.className = "";
 
         reader.onreading = (event) => {
-          const { message } = event;
-          for (const record of message.records) {
+          for (const record of event.message.records) {
             if (record.recordType === "text") {
               const textDecoder = new TextDecoder(record.encoding || "utf-8");
               const data = textDecoder.decode(record.data).trim().toLowerCase();
@@ -246,5 +282,6 @@
 
 </body>
 </html>
+
 
 

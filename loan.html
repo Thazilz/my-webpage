@@ -5,15 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Loan Form</title>
   <style>
-    body { font-family: Arial; padding: 20px; }
-    nav a { margin-right: 10px; }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    
+    /* Navigation styles - plain like index.html */
+    nav {
+      font-family: Arial, sans-serif;
+      margin-bottom: 20px;
+    }
+    nav a {
+      color: black;
+      text-decoration: none;
+      margin-right: 10px;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    nav button {
+      font-family: Arial, sans-serif;
+      padding: 6px 12px;
+      cursor: pointer;
+      background: none; /* remove color */
+      border: 1px solid #ccc; /* subtle border */
+      color: black;
+      float: right;
+    }
+    nav button:hover {
+      background: #f0f0f0; /* subtle hover */
+    }
+
     form { max-width: 500px; margin: auto; background: #f4f4f4; padding: 20px; border-radius: 8px; }
     input, select { width: 100%; margin-bottom: 10px; padding: 10px; }
-    button { padding: 10px 20px; background-color: #28a745; color: white; border: none; cursor: pointer; }
-    button:disabled { background-color: #ccc; cursor: not-allowed; }
-    button:hover:enabled { background-color: #218838; }
+    button[type="submit"] { padding: 10px 20px; background-color: #28a745; color: white; border: none; cursor: pointer; }
+    button[type="submit"]:disabled { background-color: #ccc; cursor: not-allowed; }
+    button[type="submit"]:hover:enabled { background-color: #218838; }
+
     .success { color: green; text-align: center; }
     .error { color: red; text-align: center; }
+
     #loanList { max-width: 600px; margin: 30px auto; }
     #loanList ul { list-style: none; padding: 0; }
     #loanList li { background: #e9ecef; margin-bottom: 10px; padding: 10px; border-radius: 5px; }
@@ -21,17 +49,19 @@
 </head>
 <body>
 
+<!-- Navigation -->
 <nav>
   <a href="index.html">Home</a> |
   <a href="inventory.html">Inventory</a> |
   <a href="loan.html">Loan</a> |
   <a href="return.html">Return</a> |
-  <a href="contact.html">Contact</a>|
-  <a href="approve.html"><strong>Approvals</strong></a>
+  <a href="approval.html">Approvals</a> |
+  <a href="contact.html">Contact</a> |
+  <button id="logoutBtn">Logout</button>
 </nav>
+<hr>
 
 <h2>Loan an Item</h2>
-
 <p><a href="inventory.html">🔙 Back to Inventory</a></p>
 
 <form id="loanForm">
@@ -54,11 +84,9 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-  import {
-    getDatabase, ref, push, get, onChildAdded, onValue, query, orderByChild, equalTo, update, serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+  import { getDatabase, ref, push, get, onChildAdded, onValue, query, orderByChild, equalTo, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
-  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
     authDomain: "my-webpage-93c94.firebaseapp.com",
@@ -71,7 +99,21 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
+  const auth = getAuth(app);
 
+  // Logout
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    signOut(auth).then(() => {
+      window.location.href = "login.html";
+    }).catch(err => console.error(err));
+  });
+
+  // Redirect unauthenticated users
+  onAuthStateChanged(auth, user => {
+    if (!user) window.location.href = "login.html";
+  });
+
+  // Loan Form Logic
   const loansRef = ref(db, 'loans');
   const inventoryRef = ref(db, 'inventory');
 
@@ -86,7 +128,6 @@
   const inventoryMap = new Map();
   let inventoryLoaded = false;
 
-  // Load inventory data once
   onValue(inventoryRef, (snapshot) => {
     inventoryMap.clear();
     const data = snapshot.val();
@@ -116,23 +157,17 @@
       return;
     }
 
-    // Prefill model/brand
     const item = inventoryMap.get(itemId);
     if (item) {
       modelInput.value = item.modelNumber || "";
       brandInput.value = item.brand || "";
     }
 
-    // Check if item already on active or pending loan
     const activeLoanQuery = query(loansRef, orderByChild("itemId"), equalTo(itemId));
     const snapshot = await get(activeLoanQuery);
     let unavailable = false;
-
     snapshot.forEach(child => {
-      const s = child.val().status;
-      if (s === "active" || s === "pendingApproval") {
-        unavailable = true;
-      }
+      if (child.val().status === "active" || child.val().status === "pendingApproval") unavailable = true;
     });
 
     if (unavailable) {
@@ -146,10 +181,8 @@
 
   itemIdInput.addEventListener('input', validateItemId);
 
-  // Submit loan for approval
   loanForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-
     const borrowerName = document.getElementById('borrowerName').value.trim();
     const department = document.getElementById('department').value.trim();
     const itemId = itemIdInput.value.trim();
@@ -176,13 +209,12 @@
       loanForm.reset();
       submitButton.disabled = true;
     } catch (err) {
-      console.error("Loan submission error:", err);
+      console.error(err);
       loanResponseMsg.textContent = "❌ Error submitting loan.";
       loanResponseMsg.className = "error";
     }
   });
 
-  // Display only active loans
   onChildAdded(loansRef, (data) => {
     const loan = data.val();
     if (loan.status !== "active") return;
@@ -198,7 +230,7 @@
     loanUl.prepend(li);
   });
 
-  // Prefill from URL parameters
+  // Prefill from URL
   window.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const itemId = params.get('itemId');
@@ -223,7 +255,6 @@
     }
   });
 </script>
-
-
-
+</body>
+</html>
 

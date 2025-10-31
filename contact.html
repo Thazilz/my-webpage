@@ -5,12 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Contact Form</title>
   <style>
-    body { font-family: Arial; padding: 20px; }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+
+    /* Navigation styles - plain like index.html */
+    nav {
+      font-family: Arial, sans-serif;
+      margin-bottom: 20px;
+    }
+    nav a {
+      color: black;
+      text-decoration: none;
+      margin-right: 10px;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    nav button {
+      font-family: Arial, sans-serif;
+      padding: 6px 12px;
+      cursor: pointer;
+      background: none;
+      border: 1px solid #ccc;
+      color: black;
+      float: right;
+    }
+    nav button:hover {
+      background: #f0f0f0;
+    }
+
     form { max-width: 400px; margin: auto; }
     input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; }
-    button { padding: 10px 20px; }
+    button[type="submit"] { padding: 10px 20px; }
     .success { color: green; }
     .error { color: red; }
+
     #messagesList { max-width: 400px; margin: 20px auto; }
     #messagesList h3 { margin-bottom: 10px; }
     #messagesList ul { list-style-type: none; padding-left: 0; }
@@ -20,122 +48,147 @@
 </head>
 <body>
 
-  <nav>
-    <a href="index.html">Home</a> |
-    <a href="inventory.html">Inventory</a> |
-    <a href="loan.html">Loan</a> |
-    <a href="return.html">Return</a> |
-    <a href="contact.html">Contact</a>
-  </nav>
+<!-- Navigation -->
+<nav>
+  <a href="index.html">Home</a> |
+  <a href="inventory.html">Inventory</a> |
+  <a href="loan.html">Loan</a> |
+  <a href="return.html">Return</a> |
+  <a href="approval.html">Approvals</a> |
+  <a href="contact.html">Contact</a> |
+  <button id="logoutBtn">Logout</button>
+</nav>
+<hr>
 
-  <h2>Contact Details</h2>
-  <form id="contactForm">
-    <input type="text" id="name" placeholder="Your Name" required />
-    <input type="email" id="email" placeholder="Your Email" required />
-    <textarea id="message" placeholder="Your Message" required></textarea>
-    <button type="submit">Send</button>
-  </form>
-  <p id="responseMsg"></p>
+<h2>Contact Details</h2>
 
-  <div id="messagesList">
-    <h3>Submitted Messages:</h3>
-    <ul id="messagesUl"></ul>
-  </div>
+<form id="contactForm">
+  <input type="text" id="name" placeholder="Your Name" required />
+  <input type="email" id="email" placeholder="Your Email" required />
+  <textarea id="message" placeholder="Your Message" required></textarea>
+  <button type="submit">Send</button>
+</form>
+<p id="responseMsg"></p>
 
-  <script type="module">
-    // Firebase imports
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import {
-      getDatabase,
-      ref,
-      push,
-      onChildAdded,
-      serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+<div id="messagesList">
+  <h3>Submitted Messages:</h3>
+  <ul id="messagesUl"></ul>
+</div>
 
-    // ✅ Replace this with your actual Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
-      authDomain: "my-webpage-93c94.firebaseapp.com",
-      databaseURL: "https://my-webpage-93c94-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "my-webpage-93c94",
-      storageBucket: "my-webpage-93c94.appspot.com",
-      messagingSenderId: "959385466155",
-      appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
-    };
+<script type="module">
+  // Firebase imports
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+  import {
+    getDatabase,
+    ref,
+    push,
+    onChildAdded,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+  // Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
+    authDomain: "my-webpage-93c94.firebaseapp.com",
+    databaseURL: "https://my-webpage-93c94-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "my-webpage-93c94",
+    storageBucket: "my-webpage-93c94.appspot.com",
+    messagingSenderId: "959385466155",
+    appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
+  };
 
-    // DOM Elements
-    const contactForm = document.getElementById('contactForm');
-    const responseMsg = document.getElementById('responseMsg');
-    const messagesUl = document.getElementById('messagesUl');
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const auth = getAuth(app);
 
-    const contactsRef = ref(db, 'contacts');
+  // Redirect unauthenticated users
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      window.location.href = "login.html";
+    }
+  });
 
-    // Realtime listener
-    onChildAdded(contactsRef, (data) => {
-      const { name, email, message, timestamp } = data.val();
+  // Logout button
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      window.location.href = "login.html";
+    } catch (err) {
+      console.error("Logout failed:", err);
+      alert("❌ Logout failed");
+    }
+  });
 
-      let dateStr = "Unknown";
-      if (timestamp && !isNaN(timestamp)) {
-        dateStr = new Date(timestamp).toLocaleString();
-      }
+  // DOM Elements
+  const contactForm = document.getElementById('contactForm');
+  const responseMsg = document.getElementById('responseMsg');
+  const messagesUl = document.getElementById('messagesUl');
 
-      const li = document.createElement('li');
+  const contactsRef = ref(db, 'contacts');
 
-      const header = document.createElement('strong');
-      header.textContent = `${name} (${email})`;
+  // Realtime listener
+  onChildAdded(contactsRef, (data) => {
+    const { name, email, message, timestamp } = data.val();
 
-      const time = document.createElement('em');
-      time.textContent = dateStr;
+    let dateStr = "Unknown";
+    if (timestamp && !isNaN(timestamp)) {
+      dateStr = new Date(timestamp).toLocaleString();
+    }
 
-      const para = document.createElement('p');
-      para.textContent = message;
+    const li = document.createElement('li');
 
-      li.appendChild(header);
-      li.appendChild(time);
-      li.appendChild(para);
+    const header = document.createElement('strong');
+    header.textContent = `${name} (${email})`;
 
-      messagesUl.prepend(li);
-    });
+    const time = document.createElement('em');
+    time.textContent = dateStr;
 
-    // Form submission
-    contactForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+    const para = document.createElement('p');
+    para.textContent = message;
 
-      const name = document.getElementById('name').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const message = document.getElementById('message').value.trim();
+    li.appendChild(header);
+    li.appendChild(time);
+    li.appendChild(para);
 
-      if (!name || !email || !message) {
-        responseMsg.textContent = "All fields are required.";
-        responseMsg.className = "error";
-        return;
-      }
+    messagesUl.prepend(li);
+  });
 
-      responseMsg.textContent = "Sending...";
-      responseMsg.className = "";
+  // Form submission
+  contactForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-      try {
-        await push(contactsRef, {
-          name,
-          email,
-          message,
-          timestamp: serverTimestamp()
-        });
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const message = document.getElementById('message').value.trim();
 
-        responseMsg.textContent = "Message sent successfully!";
-        responseMsg.className = "success";
-        contactForm.reset();
-      } catch (err) {
-        console.error("Error saving message:", err);
-        responseMsg.textContent = "Error sending message.";
-        responseMsg.className = "error";
-      }
-    });
-  </script>
+    if (!name || !email || !message) {
+      responseMsg.textContent = "All fields are required.";
+      responseMsg.className = "error";
+      return;
+    }
+
+    responseMsg.textContent = "Sending...";
+    responseMsg.className = "";
+
+    try {
+      await push(contactsRef, {
+        name,
+        email,
+        message,
+        timestamp: serverTimestamp()
+      });
+
+      responseMsg.textContent = "Message sent successfully!";
+      responseMsg.className = "success";
+      contactForm.reset();
+    } catch (err) {
+      console.error("Error saving message:", err);
+      responseMsg.textContent = "Error sending message.";
+      responseMsg.className = "error";
+    }
+  });
+</script>
 </body>
 </html>
+
