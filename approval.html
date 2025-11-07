@@ -6,31 +6,42 @@
   <title>Approve Loans</title>
   <style>
     body { font-family: Arial; padding: 20px; background-color: #f8f9fa; }
-    nav a { margin-right: 10px; }
-    h2 { text-align: center; }
+    nav {
+      font-family: Arial, sans-serif;
+      margin-bottom: 20px;
+    }
+    nav a {
+      color: black;
+      text-decoration: none;
+      margin-right: 10px;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    nav button {
+      font-family: Arial, sans-serif;
+      padding: 6px 12px;
+      cursor: pointer;
+      background: none;
+      border: 1px solid #ccc;
+      color: black;
+      float: right;
+    }
+    nav button:hover {
+      background: #f0f0f0;
+    }
     .loan-item {
       background: #fff;
-      padding: 15px;
-      margin-bottom: 15px;
-      border-radius: 8px;
-      border-left: 5px solid orange;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .loan-item p { margin: 5px 0; }
-    button {
-      padding: 8px 15px;
-      margin-right: 10px;
-      border: none;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-bottom: 10px;
       border-radius: 5px;
+    }
+    .loan-item button {
+      margin-right: 5px;
+      padding: 6px 10px;
       cursor: pointer;
     }
-    .approve { background-color: #28a745; color: white; }
-    .reject { background-color: #dc3545; color: white; }
-    .approve:hover { background-color: #218838; }
-    .reject:hover { background-color: #c82333; }
-    #statusMsg { text-align: center; margin-top: 20px; font-weight: bold; }
-    #logoutBtn { float: right; background-color: #6c757d; color: white; }
-    #logoutBtn:hover { background-color: #5a6268; }
   </style>
 </head>
 <body>
@@ -42,8 +53,7 @@
   <a href="loan.html">Loan</a> |
   <a href="return.html">Return</a> |
   <a href="approval.html">Approvals</a> |
-  <a href="contact.html">Contact</a> |
-  <button id="logoutBtn" style="float:right; padding:6px 12px;">Logout</button>
+  <button id="logoutBtn">Logout</button>
 </nav>
 <hr>
 
@@ -79,9 +89,7 @@
 
   // === Logout button ===
   logoutBtn.addEventListener("click", () => {
-    signOut(auth).then(() => {
-      window.location.href = "login.html";
-    });
+    signOut(auth).then(() => window.location.href = "login.html");
   });
 
   // === Protect page (admin only) ===
@@ -92,7 +100,6 @@
       return;
     }
 
-    // Check custom claim 'admin'
     const token = await user.getIdTokenResult();
     const isAdmin = !!token.claims.admin;
 
@@ -102,7 +109,6 @@
       return;
     }
 
-    // Load loans only for admin
     loadPendingLoans();
   });
 
@@ -136,32 +142,34 @@
           <button class="reject">Reject</button>
         `;
 
-        // Approve button
+        // === Approve button ===
         div.querySelector(".approve").addEventListener("click", async () => {
           if (!confirm(`Approve loan for item ${loan.itemId}?`)) return;
           try {
             await update(ref(db, "loans/" + id), { status: "active" });
+
             loanContainer.removeChild(div);
-            statusMsg.textContent = `✅ Loan for ${loan.itemId} approved.`;
+            statusMsg.textContent = `✅ Loan for ${loan.itemId} approved and email sent.`;
             statusMsg.style.color = "green";
           } catch (err) {
             console.error(err);
-            statusMsg.textContent = "❌ Error approving loan.";
+            statusMsg.textContent = "❌ Error approving loan or sending email.";
             statusMsg.style.color = "red";
           }
         });
 
-        // Reject button
+        // === Reject button ===
         div.querySelector(".reject").addEventListener("click", async () => {
           if (!confirm(`Reject loan for item ${loan.itemId}?`)) return;
           try {
             await update(ref(db, "loans/" + id), { status: "rejected" });
+
             loanContainer.removeChild(div);
-            statusMsg.textContent = `🚫 Loan for ${loan.itemId} rejected.`;
+            statusMsg.textContent = `🚫 Loan for ${loan.itemId} rejected and email sent.`;
             statusMsg.style.color = "orange";
           } catch (err) {
             console.error(err);
-            statusMsg.textContent = "❌ Error rejecting loan.";
+            statusMsg.textContent = "❌ Error rejecting loan or sending email.";
             statusMsg.style.color = "red";
           }
         });
@@ -174,3 +182,4 @@
 
 </body>
 </html>
+

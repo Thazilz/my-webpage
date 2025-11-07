@@ -7,7 +7,7 @@
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     
-    /* Navigation styles - plain like index.html */
+    /* Navigation styles */
     nav {
       font-family: Arial, sans-serif;
       margin-bottom: 20px;
@@ -24,27 +24,64 @@
       font-family: Arial, sans-serif;
       padding: 6px 12px;
       cursor: pointer;
-      background: none; /* remove color */
-      border: 1px solid #ccc; /* subtle border */
+      background: none;
+      border: 1px solid #ccc;
       color: black;
       float: right;
     }
     nav button:hover {
-      background: #f0f0f0; /* subtle hover */
+      background: #f0f0f0;
     }
 
-    form { max-width: 500px; margin: auto; background: #f4f4f4; padding: 20px; border-radius: 8px; }
-    input, select { width: 100%; margin-bottom: 10px; padding: 10px; }
-    button[type="submit"] { padding: 10px 20px; background-color: #28a745; color: white; border: none; cursor: pointer; }
-    button[type="submit"]:disabled { background-color: #ccc; cursor: not-allowed; }
-    button[type="submit"]:hover:enabled { background-color: #218838; }
+    form {
+      max-width: 500px;
+      margin: auto;
+      background: #f4f4f4;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    input, select {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 10px;
+    }
+    button[type="submit"] {
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button[type="submit"]:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    button[type="submit"]:hover:enabled {
+      background-color: #218838;
+    }
 
     .success { color: green; text-align: center; }
     .error { color: red; text-align: center; }
 
-    #loanList { max-width: 600px; margin: 30px auto; }
-    #loanList ul { list-style: none; padding: 0; }
-    #loanList li { background: #e9ecef; margin-bottom: 10px; padding: 10px; border-radius: 5px; }
+    #loanList, #loanAdminSection {
+      max-width: 600px;
+      margin: 30px auto;
+    }
+    #loanList ul, #loanAdminSection ul {
+      list-style: none;
+      padding: 0;
+    }
+    #loanList li, #loanAdminSection li {
+      background: #e9ecef;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 5px;
+      border-left: 5px solid #999;
+    }
+    #loanAdminSection button {
+      margin: 4px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -56,7 +93,6 @@
   <a href="loan.html">Loan</a> |
   <a href="return.html">Return</a> |
   <a href="approval.html">Approvals</a> |
-  <a href="contact.html">Contact</a> |
   <button id="logoutBtn">Logout</button>
 </nav>
 <hr>
@@ -78,13 +114,18 @@
 <p id="loanResponseMsg"></p>
 
 <div id="loanList">
-  <h3>Active Loan Records</h3>
+  <h3>Loan Records</h3>
   <ul id="loanUl"></ul>
+</div>
+
+<div id="loanAdminSection">
+  <h3>Manage Loan Requests (Admin)</h3>
+  <ul id="adminLoanUl"></ul>
 </div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-  import { getDatabase, ref, push, get, onChildAdded, onValue, query, orderByChild, equalTo, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+  import { getDatabase, ref, push, get, onChildAdded, onValue, query, orderByChild, equalTo, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
   import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
   const firebaseConfig = {
@@ -101,6 +142,9 @@
   const db = getDatabase(app);
   const auth = getAuth(app);
 
+  const loanAdminSection = document.getElementById('loanAdminSection');
+  loanAdminSection.style.display = "none"; // hidden by default
+
   // Logout
   document.getElementById('logoutBtn').addEventListener('click', () => {
     signOut(auth).then(() => {
@@ -108,9 +152,23 @@
     }).catch(err => console.error(err));
   });
 
-  // Redirect unauthenticated users
-  onAuthStateChanged(auth, user => {
-    if (!user) window.location.href = "login.html";
+  // Auth and admin check
+  onAuthStateChanged(auth, async user => {
+    if (!user) return window.location.href = "login.html";
+
+    // Check admin privileges
+    const userRef = ref(db, `users/${user.uid}`);
+    const userSnap = await get(userRef);
+    const userData = userSnap.val();
+
+    if (userData && userData.isAdmin) {
+      console.log("✅ Admin detected:", user.email);
+      loanAdminSection.style.display = "block"; // show admin tools
+      initializeAdminSection(); // load admin tools
+    } else {
+      console.log("👤 Regular user:", user.email);
+      loanAdminSection.style.display = "none";
+    }
   });
 
   // Loan Form Logic
@@ -167,7 +225,7 @@
     const snapshot = await get(activeLoanQuery);
     let unavailable = false;
     snapshot.forEach(child => {
-      if (child.val().status === "active" || child.val().status === "pendingApproval") unavailable = true;
+      if (["active", "pendingApproval"].includes(child.val().status)) unavailable = true;
     });
 
     if (unavailable) {
@@ -190,6 +248,12 @@
     const brand = brandInput.value.trim();
     const loanDate = document.getElementById('loanDate').value;
     const returnDate = document.getElementById('returnDate').value;
+
+    if (new Date(returnDate) < new Date(loanDate)) {
+      loanResponseMsg.textContent = "❌ Return date cannot be before loan date.";
+      loanResponseMsg.className = "error";
+      return;
+    }
 
     try {
       await push(loansRef, {
@@ -215,20 +279,83 @@
     }
   });
 
+  // Display all loans color-coded by status
   onChildAdded(loansRef, (data) => {
     const loan = data.val();
-    if (loan.status !== "active") return;
-
     const li = document.createElement('li');
+    let color = "#999";
+    if (loan.status === "active") color = "green";
+    if (loan.status === "pendingApproval") color = "orange";
+    if (loan.status === "denied") color = "red";
+    if (loan.status === "returned") color = "blue";
+    li.style.borderColor = color;
+
     li.innerHTML = `
       <strong>${loan.borrowerName}</strong> (${loan.department})<br>
       <em>Item ID:</em> ${loan.itemId}<br>
       <em>Model:</em> ${loan.model} | <em>Brand:</em> ${loan.brand}<br>
       <em>Loan Date:</em> ${loan.loanDate} | <em>Return Date:</em> ${loan.returnDate}<br>
-      <em>Status:</em> ${loan.status}
+      <em>Status:</em> <span style="color:${color}; font-weight:bold;">${loan.status}</span>
     `;
     loanUl.prepend(li);
   });
+
+  // --- ADMIN SECTION LOGIC (only runs if user is admin) ---
+  function initializeAdminSection() {
+    const adminLoanUl = document.getElementById('adminLoanUl');
+    onValue(loansRef, (snapshot) => {
+      adminLoanUl.innerHTML = "";
+      const loans = snapshot.val();
+      if (!loans) {
+        adminLoanUl.innerHTML = "<li>No loan requests yet.</li>";
+        return;
+      }
+
+      Object.entries(loans).forEach(([key, loan]) => {
+        const li = document.createElement('li');
+        let controls = "";
+        if (loan.status === "pendingApproval") {
+          controls = `
+            <button data-key="${key}" data-action="approve">✅ Approve</button>
+            <button data-key="${key}" data-action="deny">❌ Deny</button>
+          `;
+        } else if (loan.status === "active") {
+          controls = `<button data-key="${key}" data-action="return">↩️ Mark as Returned</button>`;
+        }
+
+        li.innerHTML = `
+          <strong>${loan.borrowerName}</strong> (${loan.department})<br>
+          <em>Item:</em> ${loan.itemId} | ${loan.model} (${loan.brand})<br>
+          <em>Loan Date:</em> ${loan.loanDate} → <em>Return Date:</em> ${loan.returnDate}<br>
+          <em>Status:</em> <b>${loan.status}</b><br>
+          ${controls}
+        `;
+        adminLoanUl.appendChild(li);
+      });
+    });
+
+    adminLoanUl.addEventListener("click", async (e) => {
+      if (e.target.tagName !== "BUTTON") return;
+      const key = e.target.dataset.key;
+      const action = e.target.dataset.action;
+
+      try {
+        if (action === "approve") {
+          await update(ref(db, "loans/" + key), { status: "active" });
+          alert("Loan approved!");
+        } else if (action === "deny") {
+          await update(ref(db, "loans/" + key), { status: "denied" });
+          alert("Loan denied.");
+        } else if (action === "return") {
+          await update(ref(db, "loans/" + key), { status: "returned" });
+          alert("Loan marked as returned.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("❌ Error updating loan status.");
+      }
+    });
+  }
 
   // Prefill from URL
   window.addEventListener('DOMContentLoaded', () => {
@@ -257,4 +384,5 @@
 </script>
 </body>
 </html>
+
 

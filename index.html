@@ -7,8 +7,36 @@
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+
+    /* Navigation styles - plain like index.html */
+    nav {
+      font-family: Arial, sans-serif;
+      margin-bottom: 20px;
+    }
+    nav a {
+      color: black;
+      text-decoration: none;
+      margin-right: 10px;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    nav button {
+      font-family: Arial, sans-serif;
+      padding: 6px 12px;
+      cursor: pointer;
+      background: none; /* remove color */
+      border: 1px solid #ccc; /* subtle border */
+      color: black;
+      float: right;
+    }
+    nav button:hover {
+      background: #f0f0f0; /* subtle hover */
+    }
+
+
+
     #nfcStatus { text-align: center; font-style: italic; margin-top: 10px; }
-    nav a { margin-right: 10px; }
   </style>
 </head>
 <body>
@@ -20,7 +48,6 @@
   <a href="loan.html">Loan</a> |
   <a href="return.html">Return</a> |
   <a href="approval.html">Approvals</a> |
-  <a href="contact.html">Contact</a> |
   <button id="logoutBtn" style="float:right; padding:6px 12px;">Logout</button>
 </nav>
 <hr>
