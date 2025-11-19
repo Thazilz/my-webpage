@@ -5,88 +5,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Loan Form</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
+    body { font-family: Arial, sans-serif; padding: 20px; background-color: #f8f9fa; }
     
-    /* Navigation styles */
-    nav {
-      font-family: Arial, sans-serif;
-      margin-bottom: 20px;
-    }
-    nav a {
-      color: black;
-      text-decoration: none;
-      margin-right: 10px;
-    }
-    nav a:hover {
-      text-decoration: underline;
-    }
+    /* Navigation */
+    nav { margin-bottom: 20px; }
+    nav a { color: black; text-decoration: none; margin-right: 10px; }
+    nav a:hover { text-decoration: underline; }
     nav button {
-      font-family: Arial, sans-serif;
-      padding: 6px 12px;
-      cursor: pointer;
-      background: none;
-      border: 1px solid #ccc;
-      color: black;
-      float: right;
+      padding: 6px 12px; cursor: pointer;
+      background: none; border: 1px solid #ccc;
+      color: black; float: right;
     }
-    nav button:hover {
-      background: #f0f0f0;
-    }
+    nav button:hover { background: #f0f0f0; }
 
     form {
-      max-width: 500px;
-      margin: auto;
-      background: #f4f4f4;
-      padding: 20px;
-      border-radius: 8px;
-    }
-    input, select {
-      width: 100%;
-      margin-bottom: 10px;
-      padding: 10px;
-    }
-    button[type="submit"] {
-      padding: 10px 20px;
-      background-color: #28a745;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    button[type="submit"]:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
-    }
-    button[type="submit"]:hover:enabled {
-      background-color: #218838;
+      max-width: 600px; margin: auto; background: #fff;
+      padding: 20px; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 10px 20px;
+      align-items: center;
     }
 
-    .success { color: green; text-align: center; }
-    .error { color: red; text-align: center; }
+    label { text-align: right; font-weight: bold; }
+
+    input, select {
+      width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;
+    }
+
+    button[type="submit"] {
+      grid-column: 2 / 3; padding: 10px 20px; background-color: #28a745;
+      color: white; border: none; cursor: pointer; border-radius: 4px;
+    }
+    button[type="submit"]:disabled { background-color: #ccc; cursor: not-allowed; }
+    button[type="submit"]:hover:enabled { background-color: #218838; }
+
+    .success { color: green; grid-column: 2 / 3; }
+    .error { color: red; grid-column: 2 / 3; }
 
     #loanList, #loanAdminSection {
-      max-width: 600px;
-      margin: 30px auto;
+      max-width: 600px; margin: 30px auto;
     }
     #loanList ul, #loanAdminSection ul {
-      list-style: none;
-      padding: 0;
+      list-style: none; padding: 0;
     }
     #loanList li, #loanAdminSection li {
-      background: #e9ecef;
-      margin-bottom: 10px;
-      padding: 10px;
-      border-radius: 5px;
-      border-left: 5px solid #999;
+      background: #e9ecef; margin-bottom: 10px;
+      padding: 10px; border-radius: 5px; border-left: 5px solid #999;
     }
-    #loanAdminSection button {
-      margin: 4px;
-      cursor: pointer;
-    }
+    #loanAdminSection button { margin: 4px; cursor: pointer; }
   </style>
 </head>
 <body>
 
-<!-- Navigation -->
 <nav>
   <a href="index.html">Home</a> |
   <a href="inventory.html">Inventory</a> |
@@ -101,20 +72,37 @@
 <p><a href="inventory.html">🔙 Back to Inventory</a></p>
 
 <form id="loanForm">
-  <input type="text" id="borrowerName" placeholder="Borrower's Name" required />
-  <input type="text" id="department" placeholder="Department" required />
+  <label for="borrowerName">Name:</label>
+  <input type="text" id="borrowerName" placeholder="Borrower's Name" readonly />
+
+  <label for="department">Department:</label>
+  <input type="text" id="department" placeholder="Department" readonly />
+
+  <label for="phone">Phone:</label>
+  <input type="text" id="phone" placeholder="Phone Number" readonly />
+
+  <label for="itemId">Item ID:</label>
   <input type="text" id="itemId" placeholder="Item ID" required />
-  <input type="text" id="model" placeholder="Model" required />
-  <input type="text" id="brand" placeholder="Brand" required />
+
+  <label for="model">Model:</label>
+  <input type="text" id="model" placeholder="Model" readonly />
+
+  <label for="brand">Brand:</label>
+  <input type="text" id="brand" placeholder="Brand" readonly />
+
+  <label for="loanDate">Loan Date:</label>
   <input type="date" id="loanDate" required />
+
+  <label for="returnDate">Return Date:</label>
   <input type="date" id="returnDate" required />
+
   <button type="submit" disabled>Submit Loan</button>
 </form>
 
 <p id="loanResponseMsg"></p>
 
 <div id="loanList">
-  <h3>Loan Records</h3>
+  <h3>Your Loan Records</h3>
   <ul id="loanUl"></ul>
 </div>
 
@@ -143,37 +131,15 @@
   const auth = getAuth(app);
 
   const loanAdminSection = document.getElementById('loanAdminSection');
-  loanAdminSection.style.display = "none"; // hidden by default
+  loanAdminSection.style.display = "none";
 
-  // Logout
   document.getElementById('logoutBtn').addEventListener('click', () => {
-    signOut(auth).then(() => {
-      window.location.href = "login.html";
-    }).catch(err => console.error(err));
+    signOut(auth).then(() => window.location.href = "login.html");
   });
 
-  // Auth and admin check
-  onAuthStateChanged(auth, async user => {
-    if (!user) return window.location.href = "login.html";
-
-    // Check admin privileges
-    const userRef = ref(db, `users/${user.uid}`);
-    const userSnap = await get(userRef);
-    const userData = userSnap.val();
-
-    if (userData && userData.isAdmin) {
-      console.log("✅ Admin detected:", user.email);
-      loanAdminSection.style.display = "block"; // show admin tools
-      initializeAdminSection(); // load admin tools
-    } else {
-      console.log("👤 Regular user:", user.email);
-      loanAdminSection.style.display = "none";
-    }
-  });
-
-  // Loan Form Logic
   const loansRef = ref(db, 'loans');
   const inventoryRef = ref(db, 'inventory');
+  const usersRef = ref(db, 'users');
 
   const loanForm = document.getElementById('loanForm');
   const loanResponseMsg = document.getElementById('loanResponseMsg');
@@ -182,11 +148,14 @@
   const modelInput = document.getElementById('model');
   const brandInput = document.getElementById('brand');
   const submitButton = loanForm.querySelector('button');
+  const borrowerNameInput = document.getElementById('borrowerName');
+  const departmentInput = document.getElementById('department');
+  const phoneInput = document.getElementById('phone');
 
   const inventoryMap = new Map();
   let inventoryLoaded = false;
 
-  onValue(inventoryRef, (snapshot) => {
+  onValue(inventoryRef, snapshot => {
     inventoryMap.clear();
     const data = snapshot.val();
     if (data) {
@@ -198,17 +167,57 @@
     inventoryLoaded = true;
   });
 
+  onAuthStateChanged(auth, async user => {
+    if (!user) return window.location.href = "login.html";
+
+    // Load user info
+    const userSnapshot = await get(ref(db, 'users/' + user.uid));
+    if (userSnapshot.exists()) {
+      const u = userSnapshot.val();
+      borrowerNameInput.value = u.name || "";
+      departmentInput.value = u.department || "";
+      phoneInput.value = u.phone || "";
+    }
+
+    const token = await user.getIdTokenResult();
+    const isAdmin = !!token.claims.admin;
+
+    if (isAdmin) {
+      loanAdminSection.style.display = "block";
+      initializeAdminSection();
+    }
+
+    // Display only current user's loans
+    onChildAdded(loansRef, data => {
+      const loan = data.val();
+      if (loan.borrowerUid !== user.uid) return;
+
+      const li = document.createElement('li');
+      const colorMap = { active: "green", pendingApproval: "orange", rejected: "red", returned: "blue" };
+      const color = colorMap[loan.status] || "#999";
+      li.style.borderColor = color;
+      li.innerHTML = `
+        <strong>${loan.borrowerName}</strong> (${loan.department})<br>
+        <em>Item ID:</em> ${loan.itemId}<br>
+        <em>Model:</em> ${loan.model} | <em>Brand:</em> ${loan.brand}<br>
+        <em>Loan Date:</em> ${loan.loanDate} | <em>Return Date:</em> ${loan.returnDate}<br>
+        <em>Status:</em> <b style="color:${color}">${loan.status}</b>
+      `;
+      loanUl.prepend(li);
+    });
+  });
+
   async function validateItemId() {
     const itemId = itemIdInput.value.trim();
     loanResponseMsg.textContent = "";
     loanResponseMsg.className = "";
 
-    if (!inventoryLoaded) {
+    if (!inventoryLoaded || !itemId) {
       submitButton.disabled = true;
       return;
     }
 
-    if (!itemId || !inventoryMap.has(itemId)) {
+    if (!inventoryMap.has(itemId)) {
       submitButton.disabled = true;
       loanResponseMsg.textContent = "❌ Item ID not found in inventory.";
       loanResponseMsg.className = "error";
@@ -216,33 +225,40 @@
     }
 
     const item = inventoryMap.get(itemId);
-    if (item) {
-      modelInput.value = item.modelNumber || "";
-      brandInput.value = item.brand || "";
-    }
+    modelInput.value = item.modelNumber || "";
+    brandInput.value = item.brand || "";
 
-    const activeLoanQuery = query(loansRef, orderByChild("itemId"), equalTo(itemId));
-    const snapshot = await get(activeLoanQuery);
+    const snapshot = await get(query(loansRef, orderByChild("itemId"), equalTo(itemId)));
     let unavailable = false;
+    let userHasActiveLoan = false;
+
     snapshot.forEach(child => {
-      if (["active", "pendingApproval"].includes(child.val().status)) unavailable = true;
+      const loan = child.val();
+      if (["active", "pendingApproval"].includes(loan.status)) unavailable = true;
+      if (loan.borrowerUid === auth.currentUser.uid && loan.status === "active") userHasActiveLoan = true;
     });
+
+    if (userHasActiveLoan) {
+      submitButton.disabled = true;
+      loanResponseMsg.textContent = "⚠️ You already have an active loan for this item.";
+      loanResponseMsg.className = "error";
+      return;
+    }
 
     if (unavailable) {
       submitButton.disabled = true;
       loanResponseMsg.textContent = "❌ Item is already on loan or pending approval.";
       loanResponseMsg.className = "error";
-    } else {
-      submitButton.disabled = false;
-    }
+    } else submitButton.disabled = false;
   }
 
   itemIdInput.addEventListener('input', validateItemId);
 
-  loanForm.addEventListener('submit', async (e) => {
+  loanForm.addEventListener('submit', async e => {
     e.preventDefault();
-    const borrowerName = document.getElementById('borrowerName').value.trim();
-    const department = document.getElementById('department').value.trim();
+    const user = auth.currentUser;
+    if (!user) return;
+
     const itemId = itemIdInput.value.trim();
     const model = modelInput.value.trim();
     const brand = brandInput.value.trim();
@@ -257,8 +273,10 @@
 
     try {
       await push(loansRef, {
-        borrowerName,
-        department,
+        borrowerUid: user.uid,
+        borrowerName: borrowerNameInput.value,
+        department: departmentInput.value,
+        phone: phoneInput.value,
         itemId,
         model,
         brand,
@@ -279,110 +297,55 @@
     }
   });
 
-  // Display all loans color-coded by status
-  onChildAdded(loansRef, (data) => {
-    const loan = data.val();
-    const li = document.createElement('li');
-    let color = "#999";
-    if (loan.status === "active") color = "green";
-    if (loan.status === "pendingApproval") color = "orange";
-    if (loan.status === "denied") color = "red";
-    if (loan.status === "returned") color = "blue";
-    li.style.borderColor = color;
-
-    li.innerHTML = `
-      <strong>${loan.borrowerName}</strong> (${loan.department})<br>
-      <em>Item ID:</em> ${loan.itemId}<br>
-      <em>Model:</em> ${loan.model} | <em>Brand:</em> ${loan.brand}<br>
-      <em>Loan Date:</em> ${loan.loanDate} | <em>Return Date:</em> ${loan.returnDate}<br>
-      <em>Status:</em> <span style="color:${color}; font-weight:bold;">${loan.status}</span>
-    `;
-    loanUl.prepend(li);
-  });
-
-  // --- ADMIN SECTION LOGIC (only runs if user is admin) ---
   function initializeAdminSection() {
-    const adminLoanUl = document.getElementById('adminLoanUl');
-    onValue(loansRef, (snapshot) => {
-      adminLoanUl.innerHTML = "";
-      const loans = snapshot.val();
-      if (!loans) {
-        adminLoanUl.innerHTML = "<li>No loan requests yet.</li>";
-        return;
-      }
-
-      Object.entries(loans).forEach(([key, loan]) => {
-        const li = document.createElement('li');
-        let controls = "";
-        if (loan.status === "pendingApproval") {
-          controls = `
-            <button data-key="${key}" data-action="approve">✅ Approve</button>
-            <button data-key="${key}" data-action="deny">❌ Deny</button>
-          `;
-        } else if (loan.status === "active") {
-          controls = `<button data-key="${key}" data-action="return">↩️ Mark as Returned</button>`;
-        }
-
-        li.innerHTML = `
-          <strong>${loan.borrowerName}</strong> (${loan.department})<br>
-          <em>Item:</em> ${loan.itemId} | ${loan.model} (${loan.brand})<br>
-          <em>Loan Date:</em> ${loan.loanDate} → <em>Return Date:</em> ${loan.returnDate}<br>
-          <em>Status:</em> <b>${loan.status}</b><br>
-          ${controls}
-        `;
-        adminLoanUl.appendChild(li);
-      });
-    });
-
-    adminLoanUl.addEventListener("click", async (e) => {
-      if (e.target.tagName !== "BUTTON") return;
-      const key = e.target.dataset.key;
-      const action = e.target.dataset.action;
-
-      try {
-        if (action === "approve") {
-          await update(ref(db, "loans/" + key), { status: "active" });
-          alert("Loan approved!");
-        } else if (action === "deny") {
-          await update(ref(db, "loans/" + key), { status: "denied" });
-          alert("Loan denied.");
-        } else if (action === "return") {
-          await update(ref(db, "loans/" + key), { status: "returned" });
-          alert("Loan marked as returned.");
-        }
-      } catch (err) {
-        console.error(err);
-        alert("❌ Error updating loan status.");
-      }
-    });
-  }
-
-  // Prefill from URL
-  window.addEventListener('DOMContentLoaded', () => {
-    const params = new URLSearchParams(window.location.search);
-    const itemId = params.get('itemId');
-    const model = params.get('model');
-    const brand = params.get('brand');
-
-    if (itemId) {
-      const waitForInventory = () => {
-        if (inventoryLoaded) {
-          itemIdInput.value = itemId;
-          const item = inventoryMap.get(itemId);
-          if (!item) {
-            if (model) modelInput.value = model;
-            if (brand) brandInput.value = brand;
-          }
-          validateItemId();
-        } else {
-          setTimeout(waitForInventory, 100);
-        }
-      };
-      waitForInventory();
+  const adminLoanUl = document.getElementById('adminLoanUl');
+  onValue(loansRef, snapshot => {
+    adminLoanUl.innerHTML = "";
+    const loans = snapshot.val();
+    if (!loans) {
+      adminLoanUl.innerHTML = "<li>No loan requests yet.</li>";
+      return;
     }
+
+    Object.entries(loans).forEach(([key, loan]) => {
+      const li = document.createElement('li');
+      let controls = "";
+      if (loan.status === "pendingApproval") {
+        controls = `<button data-key="${key}" data-action="approve">✅ Approve</button>
+                    <button data-key="${key}" data-action="reject">❌ Reject</button>`;
+      } else if (loan.status === "active") {
+        controls = `<button data-key="${key}" data-action="return">↩️ Mark as Returned</button>`;
+      }
+
+      li.innerHTML = `
+        <strong>${loan.borrowerName}</strong> (${loan.department})<br>
+        <em>Phone:</em> ${loan.phone}<br>
+        <em>Item:</em> ${loan.itemId} | ${loan.model} (${loan.brand})<br>
+        <em>Loan Date:</em> ${loan.loanDate} → <em>Return Date:</em> ${loan.returnDate}<br>
+        <em>Status:</em> <b>${loan.status}</b><br>
+        ${controls}
+      `;
+      adminLoanUl.appendChild(li);
+    });
   });
+
+  adminLoanUl.addEventListener("click", async e => {
+    if (e.target.tagName !== "BUTTON") return;
+    const key = e.target.dataset.key;
+    const action = e.target.dataset.action;
+
+    try {
+      if (action === "approve") await update(ref(db, "loans/" + key), { status: "active" });
+      else if (action === "reject") await update(ref(db, "loans/" + key), { status: "rejected" });
+      else if (action === "return") await update(ref(db, "loans/" + key), { status: "returned" });
+    } catch (err) { console.error(err); alert("❌ Error updating loan status."); }
+  });
+}
+
 </script>
 </body>
 </html>
+
+
 
 

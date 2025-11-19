@@ -3,50 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Approve Loans</title>
+  <title>Approve Loans & Returns</title>
   <style>
-    body { font-family: Arial; padding: 20px; background-color: #f8f9fa; }
-    nav {
-      font-family: Arial, sans-serif;
-      margin-bottom: 20px;
-    }
-    nav a {
-      color: black;
-      text-decoration: none;
-      margin-right: 10px;
-    }
-    nav a:hover {
-      text-decoration: underline;
-    }
-    nav button {
-      font-family: Arial, sans-serif;
-      padding: 6px 12px;
-      cursor: pointer;
-      background: none;
-      border: 1px solid #ccc;
-      color: black;
-      float: right;
-    }
-    nav button:hover {
-      background: #f0f0f0;
-    }
-    .loan-item {
-      background: #fff;
-      border: 1px solid #ddd;
-      padding: 10px;
-      margin-bottom: 10px;
-      border-radius: 5px;
-    }
-    .loan-item button {
-      margin-right: 5px;
-      padding: 6px 10px;
-      cursor: pointer;
-    }
+    body { font-family: Arial, sans-serif; padding: 20px; background-color: #f8f9fa; }
+    nav { margin-bottom: 20px; }
+    nav a { color: black; text-decoration: none; margin-right: 10px; }
+    nav a:hover { text-decoration: underline; }
+    nav button { padding: 6px 12px; cursor: pointer; background: none; border: 1px solid #ccc; float: right; }
+    nav button:hover { background: #f0f0f0; }
+
+    h2 { margin-top: 30px; }
+    .item-container { margin-bottom: 20px; }
+    .item { background: #fff; border: 1px solid #ddd; padding: 12px; margin-bottom: 12px; border-radius: 6px; }
+    .item button { padding: 6px 10px; margin-right: 5px; cursor: pointer; }
+    .approve { background: #28a745; color: white; border: none; }
+    .reject { background: #dc3545; color: white; border: none; }
+    .approve:hover { background: #218838; }
+    .reject:hover { background: #c82333; }
+    .status-msg { margin-top: 10px; font-weight: bold; }
   </style>
 </head>
 <body>
 
-<!-- Navigation -->
 <nav>
   <a href="index.html">Home</a> |
   <a href="inventory.html">Inventory</a> |
@@ -58,15 +36,17 @@
 <hr>
 
 <h2>Pending Loan Approvals</h2>
-<div id="loanContainer"></div>
-<p id="statusMsg"></p>
+<div id="loanContainer" class="item-container"></div>
+
+<h2>Pending Return Approvals</h2>
+<div id="returnContainer" class="item-container"></div>
+
+<p id="statusMsg" class="status-msg"></p>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-  import { 
-    getAuth, onAuthStateChanged, signOut 
-  } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
-  import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+  import { getDatabase, ref, query, orderByChild, equalTo, onValue, update, get } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
 
   // === Firebase Config ===
   const firebaseConfig = {
@@ -84,102 +64,120 @@
   const db = getDatabase(app);
 
   const loanContainer = document.getElementById("loanContainer");
+  const returnContainer = document.getElementById("returnContainer");
   const statusMsg = document.getElementById("statusMsg");
-  const logoutBtn = document.getElementById("logoutBtn");
 
-  // === Logout button ===
-  logoutBtn.addEventListener("click", () => {
-    signOut(auth).then(() => window.location.href = "login.html");
+  document.getElementById("logoutBtn").addEventListener("click", () => {
+    signOut(auth).then(() => location.href = "login.html");
   });
 
-  // === Protect page (admin only) ===
-  onAuthStateChanged(auth, async user => {
+  // Check auth and admin claim
+  onAuthStateChanged(auth, async (user) => {
     if (!user) {
       alert("Access denied. Please log in first.");
-      window.location.href = "login.html";
+      location.href = "login.html";
       return;
     }
 
     const token = await user.getIdTokenResult();
-    const isAdmin = !!token.claims.admin;
-
-    if (!isAdmin) {
+    if (!token.claims.admin) {
       alert("You are not authorized to access this page.");
-      window.location.href = "index.html";
+      location.href = "index.html";
       return;
     }
 
-    loadPendingLoans();
+    // Load pending loans and returns
+    loadPendingItems("loans", loanContainer, "pendingApproval", "active", "rejected");
+    loadPendingItems("returns", returnContainer, "pendingApproval", "approved", "rejected");
   });
 
-  // === Function to load pending approvals ===
-  function loadPendingLoans() {
-    const loansRef = ref(db, "loans");
-    onValue(loansRef, snapshot => {
-      loanContainer.innerHTML = "";
+  // DRY function to load pending items
+  function loadPendingItems(path, container, pendingStatus, approveStatus, rejectStatus) {
+    const itemsQuery = query(ref(db, path), orderByChild("status"), equalTo(pendingStatus));
+
+    onValue(itemsQuery, snapshot => {
+      container.innerHTML = "";
       const data = snapshot.val();
       if (!data) {
-        loanContainer.innerHTML = "<p>No pending approvals.</p>";
+        container.innerHTML = `<p>No pending ${path.slice(0, -1)}s.</p>`;
         return;
       }
 
-      const pendingLoans = Object.entries(data).filter(([id, loan]) => loan.status === "pendingApproval");
-
-      if (pendingLoans.length === 0) {
-        loanContainer.innerHTML = "<p>No pending approvals.</p>";
-        return;
-      }
-
-      pendingLoans.forEach(([id, loan]) => {
+      Object.entries(data).forEach(([id, item]) => {
         const div = document.createElement("div");
-        div.className = "loan-item";
+        div.className = "item";
         div.innerHTML = `
-          <p><strong>${loan.borrowerName}</strong> (${loan.department})</p>
-          <p><em>Item ID:</em> ${loan.itemId}</p>
-          <p><em>Model:</em> ${loan.model} | <em>Brand:</em> ${loan.brand}</p>
-          <p><em>Loan Date:</em> ${loan.loanDate} | <em>Return Date:</em> ${loan.returnDate}</p>
+          <p><strong>${item.borrowerName || "Unknown"}</strong> (${item.department || "-"})</p>
+          <p>Item ID: ${item.itemId || "-"}</p>
+          <p>Model: ${item.model || "-"} | Brand: ${item.brand || "-"}</p>
+          ${path === "loans" ? `<p>Loan Date: ${item.loanDate || "-"} | Return Date: ${item.returnDate || "-"}</p>` : `<p>Return Date: ${item.returnDate || "-"}</p>`}
           <button class="approve">Approve</button>
           <button class="reject">Reject</button>
         `;
-
-        // === Approve button ===
-        div.querySelector(".approve").addEventListener("click", async () => {
-          if (!confirm(`Approve loan for item ${loan.itemId}?`)) return;
-          try {
-            await update(ref(db, "loans/" + id), { status: "active" });
-
-            loanContainer.removeChild(div);
-            statusMsg.textContent = `✅ Loan for ${loan.itemId} approved and email sent.`;
-            statusMsg.style.color = "green";
-          } catch (err) {
-            console.error(err);
-            statusMsg.textContent = "❌ Error approving loan or sending email.";
-            statusMsg.style.color = "red";
-          }
-        });
-
-        // === Reject button ===
-        div.querySelector(".reject").addEventListener("click", async () => {
-          if (!confirm(`Reject loan for item ${loan.itemId}?`)) return;
-          try {
-            await update(ref(db, "loans/" + id), { status: "rejected" });
-
-            loanContainer.removeChild(div);
-            statusMsg.textContent = `🚫 Loan for ${loan.itemId} rejected and email sent.`;
-            statusMsg.style.color = "orange";
-          } catch (err) {
-            console.error(err);
-            statusMsg.textContent = "❌ Error rejecting loan or sending email.";
-            statusMsg.style.color = "red";
-          }
-        });
-
-        loanContainer.appendChild(div);
+        attachApprovalHandlers(div, path, id, item.itemId, approveStatus, rejectStatus);
+        container.appendChild(div);
       });
     });
   }
-</script>
 
+  // DRY function to handle approval/rejection buttons
+  function attachApprovalHandlers(div, path, id, itemId, approveStatus, rejectStatus) {
+    const approveBtn = div.querySelector(".approve");
+    const rejectBtn = div.querySelector(".reject");
+
+    approveBtn.addEventListener("click", async () => {
+      if (!confirm(`Approve ${itemId}?`)) return;
+      await handleApprovalUpdate(div, path, id, approveStatus, itemId, "approved", "green");
+    });
+
+    rejectBtn.addEventListener("click", async () => {
+      if (!confirm(`Reject ${itemId}?`)) return;
+      await handleApprovalUpdate(div, path, id, rejectStatus, itemId, "rejected", "red");
+    });
+  }
+
+  // Handle Firebase update, inventory update, and status messages
+  async function handleApprovalUpdate(div, path, id, status, itemId, actionText, color) {
+    const buttons = div.querySelectorAll("button");
+    buttons.forEach(btn => btn.disabled = true);
+
+    try {
+      // Update loan/return status
+      await update(ref(db, `${path}/${id}`), { status });
+
+      // Special handling for approved returns
+      if (path === "returns" && status === "approved") {
+        // Mark original loan as returned
+        const loanQuery = query(ref(db, "loans"), orderByChild("itemId"), equalTo(itemId));
+        const loanSnapshot = await get(loanQuery);
+        loanSnapshot.forEach(async (loanSnap) => {
+          await update(ref(db, `loans/${loanSnap.key}`), { status: "returned" });
+        });
+
+        // Update inventory to available
+        const inventoryQuery = query(ref(db, "inventory"), orderByChild("itemId"), equalTo(itemId));
+        const inventorySnapshot = await get(inventoryQuery);
+        inventorySnapshot.forEach(async (invSnap) => {
+          await update(ref(db, `inventory/${invSnap.key}`), { available: true });
+        });
+      }
+
+      div.remove();
+      showStatus(`✅ ${itemId} ${actionText}.`, color);
+    } catch (err) {
+      console.error(err);
+      buttons.forEach(btn => btn.disabled = false);
+      showStatus(`❌ Error updating ${itemId}.`, "red");
+    }
+  }
+
+  function showStatus(msg, color) {
+    statusMsg.textContent = msg;
+    statusMsg.style.color = color;
+  }
+</script>
 </body>
 </html>
+
+
 

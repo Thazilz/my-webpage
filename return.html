@@ -3,52 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Return Form with NFC</title>
+  <title>Return Form</title>
   <style>
-    body { font-family: Arial; padding: 20px; }
+    body { font-family: Arial, sans-serif; padding: 20px; background-color: #f8f9fa; }
+    nav { margin-bottom: 20px; }
+    nav a { color: black; text-decoration: none; margin-right: 10px; }
+    nav a:hover { text-decoration: underline; }
+    nav button { padding: 6px 12px; cursor: pointer; background: none; border: 1px solid #ccc; color: black; float: right; }
+    nav button:hover { background: #f0f0f0; }
 
-    /* Navigation styles - plain like index.html */
-    nav {
-      font-family: Arial, sans-serif;
-      margin-bottom: 20px;
+    form {
+      max-width: 600px; margin: auto; background: #fff;
+      padding: 20px; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      display: grid; grid-template-columns: 150px 1fr; gap: 10px 20px; align-items: center;
     }
-    nav a {
-      color: black;
-      text-decoration: none;
-      margin-right: 10px;
+    label { text-align: right; font-weight: bold; }
+    input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    button[type="submit"] {
+      grid-column: 2 / 3; padding: 10px 20px; background-color: #007bff;
+      color: white; border: none; cursor: pointer; border-radius: 4px;
     }
-    nav a:hover {
-      text-decoration: underline;
+    button[type="submit"]:disabled { background-color: #ccc; cursor: not-allowed; }
+    button[type="submit"]:hover:enabled { background-color: #0056b3; }
+    .success { color: green; grid-column: 2 / 3; }
+    .error { color: red; grid-column: 2 / 3; }
+    #returnList { max-width: 600px; margin: 30px auto; }
+    #returnList ul { list-style: none; padding: 0; }
+    #returnList li {
+      background: #e9ecef; margin-bottom: 10px; padding: 10px;
+      border-radius: 5px; border-left: 5px solid #999;
     }
-    nav button {
-      font-family: Arial, sans-serif;
-      padding: 6px 12px;
-      cursor: pointer;
-      background: none;
-      border: 1px solid #ccc;
-      color: black;
-      float: right;
-    }
-    nav button:hover {
-      background: #f0f0f0;
-    }
-
-    form { max-width: 400px; margin: auto; }
-    input, textarea { width: 100%; margin-bottom: 10px; padding: 8px; }
-    button[type="submit"], #scanNfcBtn { padding: 10px 20px; margin-bottom: 10px; }
-    .success { color: green; }
-    .error { color: red; }
-
-    #returnList { max-width: 400px; margin: 20px auto; }
-    #returnList h3 { margin-bottom: 10px; }
-    #returnList ul { list-style-type: none; padding-left: 0; }
-    #returnList li { background: #f9f9f9; margin-bottom: 8px; padding: 10px; border-radius: 4px; }
-    #returnList li strong { display: block; margin-bottom: 5px; }
   </style>
 </head>
 <body>
 
-<!-- Hardcoded Navigation -->
 <nav>
   <a href="index.html">Home</a> |
   <a href="inventory.html">Inventory</a> |
@@ -59,51 +47,47 @@
 </nav>
 <hr>
 
-<h2>Return Equipment</h2>
+<h2>Return an Item</h2>
+<p><a href="inventory.html">🔙 Back to Inventory</a></p>
 
 <form id="returnForm">
-  <label for="returnName">Your Name</label>
-  <input type="text" id="returnName" required />
+  <label for="borrowerName">Name:</label>
+  <input type="text" id="borrowerName" readonly />
 
-  <label for="returnEmail">Your Email</label>
-  <input type="email" id="returnEmail" required />
+  <label for="department">Department:</label>
+  <input type="text" id="department" readonly />
 
-  <label for="itemReturned">Item Name or ID</label>
-  <input type="text" id="itemReturned" required />
+  <label for="phone">Phone:</label>
+  <input type="text" id="phone" readonly />
 
-  <label for="returnNotes">Return Notes (optional)</label>
-  <textarea id="returnNotes"></textarea>
+  <label for="itemId">Item ID:</label>
+  <input type="text" id="itemId" placeholder="Item ID" required />
 
-  <button type="button" id="scanNfcBtn">📲 Scan NFC Tag</button> |
-  <button type="submit">Submit Return</button>
+  <label for="model">Model:</label>
+  <input type="text" id="model" readonly />
+
+  <label for="brand">Brand:</label>
+  <input type="text" id="brand" readonly />
+
+  <label for="returnDate">Return Date:</label>
+  <input type="date" id="returnDate" required />
+
+  <button type="submit" disabled>Submit Return</button>
 </form>
 
-<p id="returnResponse"></p>
+<p id="returnResponseMsg"></p>
 
 <div id="returnList">
-  <h3>Return Records:</h3>
+  <h3>Your Return Records</h3>
   <ul id="returnUl"></ul>
 </div>
 
 <script type="module">
-  // Firebase imports
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-  import {
-    getDatabase,
-    ref,
-    push,
-    get,
-    update,
-    query,
-    orderByChild,
-    equalTo,
-    serverTimestamp,
-    onChildAdded,
-    onChildChanged
-  } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+  import { getDatabase, ref, push, onChildAdded, onValue, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
   import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
-  // Firebase config
+  // Firebase configuration
   const firebaseConfig = {
     apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
     authDomain: "my-webpage-93c94.firebaseapp.com",
@@ -114,173 +98,150 @@
     appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
   };
 
-  // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const auth = getAuth(app);
 
-  // Redirect unauthenticated users
-  onAuthStateChanged(auth, user => {
-    if (!user) {
-      window.location.href = "login.html";
-    }
-  });
-
-  // Logout button
-  document.getElementById("logoutBtn").addEventListener("click", async () => {
-    try {
-      await signOut(auth);
-      window.location.href = "login.html";
-    } catch (err) {
-      console.error("Logout failed:", err);
-      alert("❌ Logout failed");
-    }
-  });
-
-  const returnRef = ref(db, 'returns');
-  const loansRef = ref(db, 'loans');
-
+  // DOM elements
   const returnForm = document.getElementById('returnForm');
-  const returnResponse = document.getElementById('returnResponse');
+  const returnResponseMsg = document.getElementById('returnResponseMsg');
   const returnUl = document.getElementById('returnUl');
+  const itemIdInput = document.getElementById('itemId');
+  const modelInput = document.getElementById('model');
+  const brandInput = document.getElementById('brand');
+  const submitButton = returnForm.querySelector('button');
+  const borrowerNameInput = document.getElementById('borrowerName');
+  const departmentInput = document.getElementById('department');
+  const phoneInput = document.getElementById('phone');
 
-  // Submit return form
-  returnForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  const inventoryRef = ref(db, 'inventory');
+  const returnsRef = ref(db, 'returns');
+  const inventoryMap = new Map();
+  let inventoryLoaded = false;
 
-    const name = document.getElementById('returnName').value.trim();
-    const email = document.getElementById('returnEmail').value.trim();
-    const item = document.getElementById('itemReturned').value.trim().toLowerCase();
-    const notes = document.getElementById('returnNotes').value.trim();
+  // Load inventory
+  onValue(inventoryRef, snapshot => {
+    inventoryMap.clear();
+    const data = snapshot.val();
+    if (data) {
+      Object.values(data).forEach(item => {
+        const key = (item.serialNumber || item.itemId || "").trim();
+        if (key) inventoryMap.set(key, item);
+      });
+    }
+    inventoryLoaded = true;
+  });
 
-    if (!name || !email || !item) {
-      returnResponse.textContent = "Please fill in all required fields.";
-      returnResponse.className = "error";
+  // Logout
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    signOut(auth).then(() => window.location.href = "login.html");
+  });
+
+  // Auth check & load user info
+  onAuthStateChanged(auth, async user => {
+    if (!user) return window.location.href = "login.html";
+
+    try {
+      const userSnapshot = await get(ref(db, 'users/' + user.uid));
+      if (userSnapshot.exists()) {
+        const u = userSnapshot.val();
+        borrowerNameInput.value = u.name || "";
+        departmentInput.value = u.department || "";
+        phoneInput.value = u.phone || "";
+      }
+    } catch (err) {
+      console.error("Error fetching user info:", err);
+    }
+
+    // Display user's return records
+    onChildAdded(returnsRef, data => {
+      const ret = data.val();
+      if (ret.borrowerUid !== user.uid) return;
+
+      const li = document.createElement('li');
+      const colorMap = { approved: "green", pendingApproval: "orange", rejected: "red" };
+      const color = colorMap[ret.status] || "#999";
+      li.style.borderColor = color;
+      li.innerHTML = `
+        <strong>${ret.borrowerName}</strong> (${ret.department})<br>
+        <em>Item ID:</em> ${ret.itemId}<br>
+        <em>Model:</em> ${ret.model} | <em>Brand:</em> ${ret.brand}<br>
+        <em>Return Date:</em> ${ret.returnDate}<br>
+        <em>Status:</em> <b style="color:${color}">${ret.status}</b>
+      `;
+      returnUl.prepend(li);
+    });
+  });
+
+  // Validate Item ID and autofill model & brand
+  async function validateItemId() {
+    const itemId = itemIdInput.value.trim();
+    returnResponseMsg.textContent = "";
+    returnResponseMsg.className = "";
+
+    if (!inventoryLoaded || !itemId) {
+      submitButton.disabled = true;
       return;
     }
 
+    if (!inventoryMap.has(itemId)) {
+      submitButton.disabled = true;
+      returnResponseMsg.textContent = "❌ Item ID not found in inventory.";
+      returnResponseMsg.className = "error";
+      modelInput.value = "";
+      brandInput.value = "";
+      return;
+    }
+
+    const item = inventoryMap.get(itemId);
+    modelInput.value = item.modelNumber || "";
+    brandInput.value = item.brand || "";
+    submitButton.disabled = false;
+  }
+
+  itemIdInput.addEventListener('input', validateItemId);
+
+  // Submit return request
+  returnForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const itemId = itemIdInput.value.trim();
+    const model = modelInput.value.trim();
+    const brand = brandInput.value.trim();
+    const returnDate = document.getElementById('returnDate').value;
+
     try {
-      const loanQuery = query(loansRef, orderByChild("itemId"), equalTo(item));
-      const loanSnapshot = await get(loanQuery);
-
-      let activeLoanKey = null;
-
-      loanSnapshot.forEach(child => {
-        const loan = child.val();
-        if (loan.status === "active") activeLoanKey = child.key;
-      });
-
-      if (!activeLoanKey) {
-        returnResponse.textContent = "❌ No active loan found for this item.";
-        returnResponse.className = "error";
-        return;
-      }
-
-      await push(returnRef, {
-        name,
-        email,
-        item,
-        notes,
+      await push(returnsRef, {
+        borrowerUid: user.uid,
+        borrowerName: borrowerNameInput.value,
+        department: departmentInput.value,
+        phone: phoneInput.value,
+        itemId,
+        model,
+        brand,
+        returnDate,
+        status: "pendingApproval",
         timestamp: serverTimestamp()
       });
 
-      await update(ref(db, `loans/${activeLoanKey}`), { status: "returned" });
-
-      returnResponse.textContent = "✅ Return submitted and loan marked as returned!";
-      returnResponse.className = "success";
+      returnResponseMsg.textContent = "✅ Return submitted for admin approval.";
+      returnResponseMsg.className = "success";
       returnForm.reset();
-
-    } catch (error) {
-      console.error("❌ Firebase error:", error);
-      returnResponse.textContent = "Error submitting return or updating loan.";
-      returnResponse.className = "error";
-    }
-  });
-
-  // Display return records
-  onChildAdded(returnRef, (data) => {
-    const { name, email, item, notes, timestamp } = data.val();
-
-    let dateStr = "Pending timestamp...";
-    if (timestamp) {
-      if (typeof timestamp === 'object' && timestamp.seconds) dateStr = new Date(timestamp.seconds * 1000).toLocaleString();
-      else if (typeof timestamp === 'number') dateStr = new Date(timestamp).toLocaleString();
-    }
-
-    const li = document.createElement('li');
-    li.id = data.key;
-    li.innerHTML = `
-      <strong>${name} (${email})</strong>
-      <em>${dateStr}</em>
-      <p><strong>Item:</strong> ${item}</p>
-      ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ""}
-    `;
-    returnUl.prepend(li);
-  });
-
-  onChildChanged(returnRef, (data) => {
-    const { name, email, item, notes, timestamp } = data.val();
-
-    let dateStr = "Pending timestamp...";
-    if (timestamp) {
-      if (typeof timestamp === 'object' && timestamp.seconds) dateStr = new Date(timestamp.seconds * 1000).toLocaleString();
-      else if (typeof timestamp === 'number') dateStr = new Date(timestamp).toLocaleString();
-    }
-
-    const li = document.getElementById(data.key);
-    if (li) {
-      li.innerHTML = `
-        <strong>${name} (${email})</strong>
-        <em>${dateStr}</em>
-        <p><strong>Item:</strong> ${item}</p>
-        ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ""}
-      `;
-    }
-  });
-
-  // NFC Scan Handler
-  const scanNfcBtn = document.getElementById('scanNfcBtn');
-  scanNfcBtn.addEventListener('click', async () => {
-    if ('NDEFReader' in window) {
-      const reader = new NDEFReader();
-
-      try {
-        await reader.scan();
-        returnResponse.textContent = "NFC scan started. Tap a tag...";
-        returnResponse.className = "";
-
-        reader.onreading = (event) => {
-          for (const record of event.message.records) {
-            if (record.recordType === "text") {
-              const textDecoder = new TextDecoder(record.encoding || "utf-8");
-              const data = textDecoder.decode(record.data).trim().toLowerCase();
-              document.getElementById('itemReturned').value = data;
-              returnResponse.textContent = `Scanned: ${data}`;
-              returnResponse.className = "success";
-              break;
-            }
-          }
-        };
-
-        reader.onerror = (event) => {
-          console.error("NFC Read Error", event);
-          returnResponse.textContent = "NFC scan failed.";
-          returnResponse.className = "error";
-        };
-
-      } catch (err) {
-        console.error("NFC error:", err);
-        returnResponse.textContent = "Error starting NFC scan. Make sure your phone supports NFC and you're using a compatible browser.";
-        returnResponse.className = "error";
-      }
-    } else {
-      alert("❌ Web NFC not supported in this browser.");
+      submitButton.disabled = true;
+      modelInput.value = "";
+      brandInput.value = "";
+    } catch (err) {
+      console.error(err);
+      returnResponseMsg.textContent = "❌ Error submitting return.";
+      returnResponseMsg.className = "error";
     }
   });
 </script>
-
 </body>
 </html>
+
 
 
 

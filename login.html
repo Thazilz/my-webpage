@@ -54,12 +54,24 @@
       cursor: pointer;
     }
     .switch:hover { text-decoration: underline; }
+
+    /* Hide registration fields by default */
+    .register-field {
+      display: none;
+    }
   </style>
 </head>
 <body>
 
 <div class="login-box">
   <h2 id="formTitle">Login</h2>
+
+  <!-- Extra fields for registration only -->
+  <input type="text" id="name" placeholder="Full Name" class="register-field" />
+  <input type="text" id="department" placeholder="Department" class="register-field" />
+  <input type="text" id="section" placeholder="Section" class="register-field" />
+  <input type="tel" id="phone" placeholder="Phone Number" class="register-field" />
+
   <input type="email" id="email" placeholder="Email" required />
   <input type="password" id="password" placeholder="Password" required />
   <button id="authBtn">Login</button>
@@ -96,6 +108,10 @@
   const auth = getAuth(app);
   const db = getDatabase(app);
 
+  const nameInput = document.getElementById("name");
+  const departmentInput = document.getElementById("department");
+  const sectionInput = document.getElementById("section");
+  const phoneInput = document.getElementById("phone");
   const emailInput = document.getElementById("email");
   const passwordInput = document.getElementById("password");
   const authBtn = document.getElementById("authBtn");
@@ -105,22 +121,27 @@
 
   let isLoginMode = true;
 
-  // Toggle between login and register modes
+  const registerFields = [nameInput, departmentInput, sectionInput, phoneInput];
+
+  function toggleFields() {
+    registerFields.forEach(field => {
+      field.style.display = isLoginMode ? "none" : "block";
+    });
+  }
+
+  toggleFields();
+
   toggleMode.addEventListener("click", () => {
     isLoginMode = !isLoginMode;
-    if (isLoginMode) {
-      formTitle.textContent = "Login";
-      authBtn.textContent = "Login";
-      toggleMode.textContent = "Don't have an account? Register";
-    } else {
-      formTitle.textContent = "Register";
-      authBtn.textContent = "Register";
-      toggleMode.textContent = "Already have an account? Login";
-    }
+    formTitle.textContent = isLoginMode ? "Login" : "Register";
+    authBtn.textContent = isLoginMode ? "Login" : "Register";
+    toggleMode.textContent = isLoginMode
+      ? "Don't have an account? Register"
+      : "Already have an account? Login";
     msg.textContent = "";
+    toggleFields();
   });
 
-  // Handle login/register
   authBtn.addEventListener("click", async () => {
     const email = emailInput.value.trim();
     const password = passwordInput.value.trim();
@@ -134,27 +155,47 @@
 
     try {
       if (isLoginMode) {
-        // LOGIN
         await signInWithEmailAndPassword(auth, email, password);
         msg.textContent = "✅ Login successful! Redirecting...";
         msg.style.color = "green";
       } else {
-        // REGISTER
+        const name = nameInput.value.trim();
+        const department = departmentInput.value.trim();
+        const section = sectionInput.value.trim();
+        const phone = phoneInput.value.trim();
+
+        if (!name || !department || !section || !phone) {
+          msg.textContent = "Please fill in all registration fields.";
+          msg.style.color = "red";
+          return;
+        }
+
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Store user info in Realtime Database
         await set(ref(db, "users/" + user.uid), {
+          name: name,
+          department: department,
+          section: section,
+          phone: phone,
           email: email,
           isAdmin: false
         });
 
         msg.textContent = "✅ Account created! You can now log in.";
         msg.style.color = "green";
+
+        // Reset form and switch to login
         isLoginMode = true;
         formTitle.textContent = "Login";
         authBtn.textContent = "Login";
         toggleMode.textContent = "Don't have an account? Register";
+        toggleFields();
+
+        // Clear fields
+        registerFields.forEach(field => field.value = "");
+        emailInput.value = "";
+        passwordInput.value = "";
       }
     } catch (err) {
       console.error(err);
@@ -163,13 +204,10 @@
     }
   });
 
-  // Auto-redirect logged-in users
   onAuthStateChanged(auth, async (user) => {
     if (user) {
-      // Fetch user's admin status
       const snapshot = await get(ref(db, "users/" + user.uid));
       const userData = snapshot.val();
-
       if (userData && userData.isAdmin) {
         window.location.href = "approval.html";
       } else {
