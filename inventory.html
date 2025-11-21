@@ -24,13 +24,13 @@
       font-family: Arial, sans-serif;
       padding: 6px 12px;
       cursor: pointer;
-      background: none; /* remove color */
-      border: 1px solid #ccc; /* subtle border */
+      background: none;
+      border: 1px solid #ccc;
       color: black;
       float: right;
     }
     nav button:hover {
-      background: #f0f0f0; /* subtle hover */
+      background: #f0f0f0;
     }
 
     #mainContainer {
@@ -40,13 +40,17 @@
       margin: 20px auto;
       align-items: flex-start;
     }
+
     #leftColumn { flex: 1; }
-    #rightColumn { width: 450px; }
+    #rightColumn { width: 480px; }
+
     form input { width: 100%; margin-bottom: 10px; padding: 8px; }
     form button { padding: 10px 20px; width: 100%; }
+
     .success { color: green; }
     .error { color: red; }
-    #inventoryList, #inventorySummary {
+
+    #inventorySummary {
       background: #f5f5f5;
       padding: 15px;
       border-radius: 6px;
@@ -54,6 +58,7 @@
       max-height: 600px;
       overflow-y: auto;
     }
+
     ul { list-style-type: none; padding-left: 0; margin: 0; }
     li {
       background: white;
@@ -63,7 +68,9 @@
       box-shadow: 0 1px 3px #ccc;
     }
     li strong { display: block; margin-bottom: 6px; font-size: 1.1em; }
+
     #nfcStatus { text-align: center; margin: 10px 0; font-weight: bold; }
+
     img {
       display: block;
       max-width: 100%;
@@ -71,6 +78,10 @@
       margin-top: 8px;
       border-radius: 4px;
     }
+
+#approvalsLink {
+  display: none;
+}
   </style>
 </head>
 <body>
@@ -81,7 +92,7 @@
   <a href="inventory.html">Inventory</a> |
   <a href="loan.html">Loan</a> |
   <a href="return.html">Return</a> |
-  <a href="approval.html">Approvals</a> |
+  <a href="approval.html" id="approvalsLink">Approvals</a>
   <button id="logoutBtn">Logout</button>
 </nav>
 <hr>
@@ -94,7 +105,7 @@
 </div>
 
 <div id="mainContainer">
-  <!-- Left Column: Always shows ALL submitted inventory -->
+  <!-- Left Column: Only the form remains -->
   <div id="leftColumn">
     <form id="inventoryForm">
       <input type="text" id="itemName" placeholder="Inventory Item Name" required />
@@ -106,14 +117,9 @@
     </form>
 
     <p id="responseMsg"></p>
-
-    <div id="inventoryList">
-      <h3>Submitted Inventory (All Items):</h3>
-      <ul id="inventoryUl"></ul>
-    </div>
   </div>
 
-  <!-- Right Column: Filtered summary -->
+  <!-- Right Column: Summary only -->
   <div id="rightColumn">
     <div style="margin-bottom: 10px;">
       <label for="filterField">🔽 Filter Summary by:</label>
@@ -140,7 +146,7 @@
     </div>
 
     <div id="inventorySummary">
-      <h3>Inventory Summary (Filtered View):</h3>
+      <h3>Inventory Summary (Filtered)</h3>
       <ul id="summaryUl"></ul>
     </div>
   </div>
@@ -169,7 +175,6 @@
 
   const inventoryForm = document.getElementById('inventoryForm');
   const responseMsg = document.getElementById('responseMsg');
-  const inventoryUl = document.getElementById('inventoryUl');
   const summaryUl = document.getElementById('summaryUl');
   const filterField = document.getElementById('filterField');
   const filterInput = document.getElementById('filterInput');
@@ -181,25 +186,31 @@
   let activeLoanedItems = new Set();
   let inventoryData = {};
 
-  // --- Auth check ---
-  onAuthStateChanged(auth, user => {
-    if (!user) {
-      window.location.href = "login.html"; // Redirect to login if not authenticated
-    }
-  });
+  onAuthStateChanged(auth, async user => {
+  if (!user) {
+    return window.location.href = "login.html";
+  }
 
-  // --- Logout ---
+  // --- Show Approvals link only for Admins ---
+  const approvalsLink = document.getElementById("approvalsLink");
+  const token = await user.getIdTokenResult();
+  const isAdmin = !!token.claims.admin;
+
+  if (isAdmin) {
+    approvalsLink.style.display = "inline";
+  }
+  // -------------------------------------------
+});
+
   logoutBtn.addEventListener("click", async () => {
     try {
       await signOut(auth);
       window.location.href = "login.html";
     } catch (err) {
-      console.error("Logout failed", err);
-      alert("Logout failed. Try again.");
+      alert("Logout failed.");
     }
   });
 
-  // --- Realtime listeners ---
   onValue(loansRef, (snapshot) => {
     activeLoanedItems.clear();
     const loans = snapshot.val();
@@ -210,17 +221,14 @@
         }
       });
     }
-    renderInventoryList();
     renderInventorySummary();
   });
 
   onValue(inventoryRef, (snapshot) => {
     inventoryData = snapshot.val() || {};
-    renderInventoryList();
     renderInventorySummary();
   });
 
-  // --- Filtering ---
   function applyFilter(items) {
     const field = filterField.value;
     const query = filterInput.value.trim().toLowerCase();
@@ -244,22 +252,32 @@
     });
   }
 
-  function renderInventoryList() {
-    inventoryUl.innerHTML = '';
-    const items = Object.values(inventoryData);
+  function renderInventorySummary() {
+    summaryUl.innerHTML = '';
+    const items = applyFilter(inventoryData);
+
     if (items.length === 0) {
-      inventoryUl.innerHTML = '<li>No inventory items found.</li>';
+      summaryUl.innerHTML = '<li>No matching inventory items.</li>';
       return;
     }
+
     items.forEach(item => {
-      const { itemName, brand, modelNumber, serialNumber, timestamp } = item;
-      const ts = typeof timestamp === 'number' ? timestamp : timestamp?.toMillis?.();
+      const { itemName, brand, modelNumber, serialNumber, imageUrl, timestamp } = item;
+
+      const ts = typeof timestamp === "number"
+        ? timestamp
+        : timestamp?.toMillis?.();
+
       const dateStr = ts ? new Date(ts).toLocaleString() : "Pending...";
+
       const isLoaned = activeLoanedItems.has(serialNumber);
+
       const loanUrl = `loan.html?itemId=${encodeURIComponent(serialNumber)}&model=${encodeURIComponent(modelNumber)}&brand=${encodeURIComponent(brand)}`;
+
       const loanLink = isLoaned
         ? '<em style="color:red;">Currently on loan</em>'
-        : `<a href="${loanUrl}" style="color: blue;">📦 Loan This Item</a>`;
+        : `<a href="${loanUrl}" style="color: blue;">📦 Loan</a>`;
+
       const li = document.createElement('li');
       li.innerHTML = `
         <strong>${itemName}</strong>
@@ -267,32 +285,6 @@
         <div>Model: ${modelNumber}</div>
         <div>Serial #: ${serialNumber}</div>
         <em>Submitted: ${dateStr}</em>
-        <div>${loanLink}</div>
-      `;
-      inventoryUl.appendChild(li);
-    });
-  }
-
-  function renderInventorySummary() {
-    summaryUl.innerHTML = '';
-    const items = applyFilter(inventoryData);
-    if (items.length === 0) {
-      summaryUl.innerHTML = '<li>No inventory items match your filter.</li>';
-      return;
-    }
-    items.forEach(item => {
-      const { itemName, brand, modelNumber, serialNumber, imageUrl } = item;
-      const isLoaned = activeLoanedItems.has(serialNumber);
-      const loanUrl = `loan.html?itemId=${encodeURIComponent(serialNumber)}&model=${encodeURIComponent(modelNumber)}&brand=${encodeURIComponent(brand)}`;
-      const loanLink = isLoaned
-        ? '<em style="color:red;">Currently on loan</em>'
-        : `<a href="${loanUrl}" style="color: blue;">📦 Loan</a>`;
-      const li = document.createElement('li');
-      li.innerHTML = `
-        <strong>${itemName}</strong>
-        <div>Brand: ${brand}</div>
-        <div>Model: ${modelNumber}</div>
-        <div>Serial #: ${serialNumber}</div>
         ${imageUrl ? `<img src="${imageUrl}" alt="${itemName}" />` : ''}
         <div>${loanLink}</div>
       `;
@@ -300,26 +292,16 @@
     });
   }
 
-  // --- Filter UI ---
   filterField.addEventListener('change', () => {
     const field = filterField.value;
-    if (field === 'loanStatus') {
-      searchContainer.style.display = 'none';
-      loanStatusContainer.style.display = 'block';
-    } else if (field === 'all') {
-      searchContainer.style.display = 'none';
-      loanStatusContainer.style.display = 'none';
-    } else {
-      searchContainer.style.display = 'block';
-      loanStatusContainer.style.display = 'none';
-    }
+    searchContainer.style.display = field !== 'all' && field !== 'loanStatus' ? 'block' : 'none';
+    loanStatusContainer.style.display = field === 'loanStatus' ? 'block' : 'none';
     renderInventorySummary();
   });
 
   filterInput.addEventListener('input', renderInventorySummary);
   loanStatusFilter.addEventListener('change', renderInventorySummary);
 
-  // --- Submit inventory ---
   inventoryForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const itemName = document.getElementById('itemName').value.trim();
@@ -346,24 +328,25 @@
       responseMsg.textContent = "Inventory submitted successfully!";
       responseMsg.className = "success";
       inventoryForm.reset();
-    } catch (error) {
-      console.error("Error:", error);
+    } catch {
       responseMsg.textContent = "Error submitting inventory.";
       responseMsg.className = "error";
     }
   });
 
-  // --- NFC Scan ---
   window.startNFC = async function () {
     const status = document.getElementById("nfcStatus");
+
     if ('NDEFReader' in window) {
       try {
         const ndef = new NDEFReader();
         await ndef.scan();
         status.textContent = "📡 NFC scanning... Tap a tag!";
+
         ndef.onreading = event => {
           const decoder = new TextDecoder();
           const { message, serialNumber } = event;
+
           let itemName = "";
           for (const record of message.records) {
             if (record.recordType === "text") {
@@ -371,23 +354,27 @@
               break;
             }
           }
-          status.textContent = `✅ Tag scanned: "${itemName || serialNumber}"`;
-          if (itemName) document.getElementById('itemName').value = itemName;
-          if (serialNumber) document.getElementById('serialNumber').value = serialNumber;
-          document.getElementById('itemName').scrollIntoView({ behavior: 'smooth' });
+
+          status.textContent = `✅ NFC tag read: "${itemName || serialNumber}"`;
+
+          if (itemName) document.getElementById("itemName").value = itemName;
+          if (serialNumber) document.getElementById("serialNumber").value = serialNumber;
+
+          document.getElementById("itemName").scrollIntoView({ behavior: 'smooth' });
         };
+
       } catch (error) {
-        console.error("NFC error:", error);
         status.textContent = "⚠️ NFC scan failed.";
       }
     } else {
-      alert("❌ Web NFC not supported in this browser.");
+      alert("❌ Web NFC is not supported on this device.");
     }
   };
 </script>
 
 </body>
 </html>
+
 
 
 

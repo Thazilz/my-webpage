@@ -1,243 +1,158 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Return Form</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background-color: #f8f9fa; }
-    nav { margin-bottom: 20px; }
-    nav a { color: black; text-decoration: none; margin-right: 10px; }
-    nav a:hover { text-decoration: underline; }
-    nav button { padding: 6px 12px; cursor: pointer; background: none; border: 1px solid #ccc; color: black; float: right; }
-    nav button:hover { background: #f0f0f0; }
-
-    form {
-      max-width: 600px; margin: auto; background: #fff;
-      padding: 20px; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1);
-      display: grid; grid-template-columns: 150px 1fr; gap: 10px 20px; align-items: center;
-    }
-    label { text-align: right; font-weight: bold; }
-    input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-    button[type="submit"] {
-      grid-column: 2 / 3; padding: 10px 20px; background-color: #007bff;
-      color: white; border: none; cursor: pointer; border-radius: 4px;
-    }
-    button[type="submit"]:disabled { background-color: #ccc; cursor: not-allowed; }
-    button[type="submit"]:hover:enabled { background-color: #0056b3; }
-    .success { color: green; grid-column: 2 / 3; }
-    .error { color: red; grid-column: 2 / 3; }
-    #returnList { max-width: 600px; margin: 30px auto; }
-    #returnList ul { list-style: none; padding: 0; }
-    #returnList li {
-      background: #e9ecef; margin-bottom: 10px; padding: 10px;
-      border-radius: 5px; border-left: 5px solid #999;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Return Item</title>
+<style>
+  body { font-family: Arial; padding: 20px; }
+  nav { margin-bottom: 20px; }
+  nav a { color: black; text-decoration: none; margin-right: 10px; }
+  nav button { padding: 6px 12px; cursor: pointer; background: none; border: 1px solid #ccc; float: right; }
+  nav button:hover { background: #f0f0f0; }
+  form input, form select, form button { display: block; margin-bottom: 10px; padding: 8px; width: 100%; }
+  .success { color: green; }
+  .error { color: red; }
+</style>
 </head>
 <body>
 
+<!-- Navbar -->
 <nav>
   <a href="index.html">Home</a> |
   <a href="inventory.html">Inventory</a> |
   <a href="loan.html">Loan</a> |
   <a href="return.html">Return</a> |
-  <a href="approval.html">Approvals</a> |
+  <a href="approval.html" id="approvalsLink" style="display:none;">Approvals</a>
   <button id="logoutBtn">Logout</button>
 </nav>
-<hr>
 
 <h2>Return an Item</h2>
-<p><a href="inventory.html">🔙 Back to Inventory</a></p>
 
 <form id="returnForm">
-  <label for="borrowerName">Name:</label>
-  <input type="text" id="borrowerName" readonly />
-
-  <label for="department">Department:</label>
-  <input type="text" id="department" readonly />
-
-  <label for="phone">Phone:</label>
-  <input type="text" id="phone" readonly />
-
-  <label for="itemId">Item ID:</label>
-  <input type="text" id="itemId" placeholder="Item ID" required />
-
-  <label for="model">Model:</label>
-  <input type="text" id="model" readonly />
-
-  <label for="brand">Brand:</label>
-  <input type="text" id="brand" readonly />
+  <label for="loanSelect">Select Loan to Return:</label>
+  <select id="loanSelect" required>
+    <option value="">-- Loading your active loans --</option>
+  </select>
 
   <label for="returnDate">Return Date:</label>
   <input type="date" id="returnDate" required />
 
-  <button type="submit" disabled>Submit Return</button>
+  <button type="submit">Submit Return Request</button>
 </form>
 
-<p id="returnResponseMsg"></p>
-
-<div id="returnList">
-  <h3>Your Return Records</h3>
-  <ul id="returnUl"></ul>
-</div>
+<p id="responseMsg"></p>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-  import { getDatabase, ref, push, onChildAdded, onValue, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
-  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import { getDatabase, ref, onValue, push } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
-  // Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
-    authDomain: "my-webpage-93c94.firebaseapp.com",
-    databaseURL: "https://my-webpage-93c94-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "my-webpage-93c94",
-    storageBucket: "my-webpage-93c94.appspot.com",
-    messagingSenderId: "959385466155",
-    appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
+  authDomain: "my-webpage-93c94.firebaseapp.com",
+  databaseURL: "https://my-webpage-93c94-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "my-webpage-93c94",
+  storageBucket: "my-webpage-93c94.appspot.com",
+  messagingSenderId: "959385466155",
+  appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
+};
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const auth = getAuth(app);
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
 
-  // DOM elements
-  const returnForm = document.getElementById('returnForm');
-  const returnResponseMsg = document.getElementById('returnResponseMsg');
-  const returnUl = document.getElementById('returnUl');
-  const itemIdInput = document.getElementById('itemId');
-  const modelInput = document.getElementById('model');
-  const brandInput = document.getElementById('brand');
-  const submitButton = returnForm.querySelector('button');
-  const borrowerNameInput = document.getElementById('borrowerName');
-  const departmentInput = document.getElementById('department');
-  const phoneInput = document.getElementById('phone');
+const returnForm = document.getElementById("returnForm");
+const loanSelect = document.getElementById("loanSelect");
+const returnDateInput = document.getElementById("returnDate");
+const responseMsg = document.getElementById("responseMsg");
+const logoutBtn = document.getElementById("logoutBtn");
+const approvalsLink = document.getElementById("approvalsLink");
 
-  const inventoryRef = ref(db, 'inventory');
-  const returnsRef = ref(db, 'returns');
-  const inventoryMap = new Map();
-  let inventoryLoaded = false;
+let userLoans = {}; // key = loanId, value = loan data
 
-  // Load inventory
-  onValue(inventoryRef, snapshot => {
-    inventoryMap.clear();
-    const data = snapshot.val();
-    if (data) {
-      Object.values(data).forEach(item => {
-        const key = (item.serialNumber || item.itemId || "").trim();
-        if (key) inventoryMap.set(key, item);
-      });
-    }
-    inventoryLoaded = true;
-  });
+// Logout handler
+logoutBtn.addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "login.html";
+});
 
-  // Logout
-  document.getElementById('logoutBtn').addEventListener('click', () => {
-    signOut(auth).then(() => window.location.href = "login.html");
-  });
+onAuthStateChanged(auth, async user => {
+  if (!user) return (window.location.href = "login.html");
 
-  // Auth check & load user info
-  onAuthStateChanged(auth, async user => {
-    if (!user) return window.location.href = "login.html";
-
-    try {
-      const userSnapshot = await get(ref(db, 'users/' + user.uid));
-      if (userSnapshot.exists()) {
-        const u = userSnapshot.val();
-        borrowerNameInput.value = u.name || "";
-        departmentInput.value = u.department || "";
-        phoneInput.value = u.phone || "";
-      }
-    } catch (err) {
-      console.error("Error fetching user info:", err);
-    }
-
-    // Display user's return records
-    onChildAdded(returnsRef, data => {
-      const ret = data.val();
-      if (ret.borrowerUid !== user.uid) return;
-
-      const li = document.createElement('li');
-      const colorMap = { approved: "green", pendingApproval: "orange", rejected: "red" };
-      const color = colorMap[ret.status] || "#999";
-      li.style.borderColor = color;
-      li.innerHTML = `
-        <strong>${ret.borrowerName}</strong> (${ret.department})<br>
-        <em>Item ID:</em> ${ret.itemId}<br>
-        <em>Model:</em> ${ret.model} | <em>Brand:</em> ${ret.brand}<br>
-        <em>Return Date:</em> ${ret.returnDate}<br>
-        <em>Status:</em> <b style="color:${color}">${ret.status}</b>
-      `;
-      returnUl.prepend(li);
-    });
-  });
-
-  // Validate Item ID and autofill model & brand
-  async function validateItemId() {
-    const itemId = itemIdInput.value.trim();
-    returnResponseMsg.textContent = "";
-    returnResponseMsg.className = "";
-
-    if (!inventoryLoaded || !itemId) {
-      submitButton.disabled = true;
-      return;
-    }
-
-    if (!inventoryMap.has(itemId)) {
-      submitButton.disabled = true;
-      returnResponseMsg.textContent = "❌ Item ID not found in inventory.";
-      returnResponseMsg.className = "error";
-      modelInput.value = "";
-      brandInput.value = "";
-      return;
-    }
-
-    const item = inventoryMap.get(itemId);
-    modelInput.value = item.modelNumber || "";
-    brandInput.value = item.brand || "";
-    submitButton.disabled = false;
+  // Show Approvals link only for Admins
+  const token = await user.getIdTokenResult();
+  if (token.claims.admin) {
+    approvalsLink.style.display = "inline";
   }
 
-  itemIdInput.addEventListener('input', validateItemId);
+  // Load user's active loans
+  const loansRef = ref(db, "loans");
+  onValue(loansRef, snapshot => {
+    const data = snapshot.val() || {};
+    loanSelect.innerHTML = '<option value="">-- Select a loan --</option>';
+    userLoans = {};
 
-  // Submit return request
-  returnForm.addEventListener('submit', async e => {
-    e.preventDefault();
-    const user = auth.currentUser;
-    if (!user) return;
+    Object.entries(data).forEach(([loanId, loan]) => {
+      if (loan.borrowerUid === user.uid && loan.status === "active") {
+        userLoans[loanId] = loan;
+        const option = document.createElement("option");
+        option.value = loanId;
+        option.textContent = `${loan.itemId} (${loan.model} | ${loan.brand}) - Loaned: ${loan.loanDate}`;
+        loanSelect.appendChild(option);
+      }
+    });
 
-    const itemId = itemIdInput.value.trim();
-    const model = modelInput.value.trim();
-    const brand = brandInput.value.trim();
-    const returnDate = document.getElementById('returnDate').value;
-
-    try {
-      await push(returnsRef, {
-        borrowerUid: user.uid,
-        borrowerName: borrowerNameInput.value,
-        department: departmentInput.value,
-        phone: phoneInput.value,
-        itemId,
-        model,
-        brand,
-        returnDate,
-        status: "pendingApproval",
-        timestamp: serverTimestamp()
-      });
-
-      returnResponseMsg.textContent = "✅ Return submitted for admin approval.";
-      returnResponseMsg.className = "success";
-      returnForm.reset();
-      submitButton.disabled = true;
-      modelInput.value = "";
-      brandInput.value = "";
-    } catch (err) {
-      console.error(err);
-      returnResponseMsg.textContent = "❌ Error submitting return.";
-      returnResponseMsg.className = "error";
+    if (Object.keys(userLoans).length === 0) {
+      loanSelect.innerHTML = '<option value="">No active loans to return</option>';
     }
   });
+});
+
+returnForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  responseMsg.textContent = "";
+  const selectedLoanId = loanSelect.value;
+  const returnDate = returnDateInput.value;
+
+  if (!selectedLoanId) {
+    responseMsg.textContent = "Please select a loan to return.";
+    responseMsg.className = "error";
+    return;
+  }
+
+  const loan = userLoans[selectedLoanId];
+
+  if (new Date(returnDate) < new Date(loan.loanDate)) {
+    responseMsg.textContent = "Return date cannot be before loan date.";
+    responseMsg.className = "error";
+    return;
+  }
+
+  try {
+    // Create return request with loanKey included
+    await push(ref(db, "returns"), {
+      itemId: loan.itemId,
+      model: loan.model,
+      brand: loan.brand,
+      borrowerUid: loan.borrowerUid,
+      borrowerName: loan.borrowerName,
+      department: loan.department,
+      loanKey: selectedLoanId,        // ✅ Link to original loan
+      returnDate,
+      status: "pendingApproval",
+      timestamp: Date.now()
+    });
+
+    responseMsg.textContent = "Return request submitted successfully!";
+    responseMsg.className = "success";
+    returnForm.reset();
+  } catch (err) {
+    console.error(err);
+    responseMsg.textContent = "Error submitting return request.";
+    responseMsg.className = "error";
+  }
+});
 </script>
 </body>
 </html>

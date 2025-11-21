@@ -34,7 +34,9 @@
       background: #f0f0f0; /* subtle hover */
     }
 
-
+#approvalsLink {
+  display: none;
+}
 
     #nfcStatus { text-align: center; font-style: italic; margin-top: 10px; }
   </style>
@@ -47,7 +49,7 @@
   <a href="inventory.html">Inventory</a> |
   <a href="loan.html">Loan</a> |
   <a href="return.html">Return</a> |
-  <a href="approval.html">Approvals</a> |
+  <a href="approval.html" id="approvalsLink">Approvals</a>
   <button id="logoutBtn" style="float:right; padding:6px 12px;">Logout</button>
 </nav>
 <hr>
@@ -81,12 +83,22 @@
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
 
-  // Redirect unauthenticated users
-  onAuthStateChanged(auth, user => {
-    if (!user) {
-      window.location.href = "login.html";
-    }
-  });
+  onAuthStateChanged(auth, async user => {
+  if (!user) {
+    return window.location.href = "login.html";
+  }
+
+  // --- Show Approvals link only for Admins ---
+  const approvalsLink = document.getElementById("approvalsLink");
+  const token = await user.getIdTokenResult();
+  const isAdmin = !!token.claims.admin;
+
+  if (isAdmin) {
+    approvalsLink.style.display = "inline";
+  }
+  // -------------------------------------------
+});
+
 
   // Logout button
   document.getElementById("logoutBtn").addEventListener("click", async () => {
