@@ -69,7 +69,9 @@ document.getElementById("logoutBtn").addEventListener("click", () => {
   signOut(auth).then(() => location.href = "login.html");
 });
 
-// Admin auth check
+// -----------------------------------------------------------
+// ADMIN AUTH CHECK
+// -----------------------------------------------------------
 onAuthStateChanged(auth, async user => {
   if (!user) {
     alert("Access denied. Please log in first.");
@@ -88,7 +90,9 @@ onAuthStateChanged(auth, async user => {
   loadPendingItems("returns", returnContainer);
 });
 
-// Load pending items
+// -----------------------------------------------------------
+// LOAD PENDING ITEMS
+// -----------------------------------------------------------
 function loadPendingItems(path, container) {
   const itemsQuery = query(ref(db, path), orderByChild("status"), equalTo("pendingApproval"));
 
@@ -107,7 +111,8 @@ function loadPendingItems(path, container) {
         <p><strong>${item.borrowerName || "Unknown"}</strong> (${item.department || "-"})</p>
         <p>Item ID: ${item.itemId || "-"}</p>
         <p>Model: ${item.model || "-"} | Brand: ${item.brand || "-"}</p>
-        ${path === "loans" ? `<p>Loan Date: ${item.loanDate || "-"} | Return Date: ${item.returnDate || "-"}</p>` : `<p>Return Date: ${item.returnDate || "-"}</p>`}
+        ${path === "loans" ? `<p>Loan Date: ${item.loanDate || "-"} | Return Date: ${item.returnDate || "-"}</p>` 
+                            : `<p>Return Date: ${item.returnDate || "-"}</p>`}
         <button class="approve">Approve</button>
         <button class="reject">Reject</button>
       `;
@@ -117,7 +122,9 @@ function loadPendingItems(path, container) {
   });
 }
 
-// Approval handlers
+// -----------------------------------------------------------
+// APPROVAL HANDLERS
+// -----------------------------------------------------------
 function attachApprovalHandlers(div, path, id, item) {
   const approveBtn = div.querySelector(".approve");
   const rejectBtn = div.querySelector(".reject");
@@ -133,7 +140,9 @@ function attachApprovalHandlers(div, path, id, item) {
   });
 }
 
-// Handle approval update (fixed version)
+// -----------------------------------------------------------
+// HANDLE APPROVAL UPDATE
+// -----------------------------------------------------------
 async function handleApprovalUpdate(div, path, id, item, action) {
   const buttons = div.querySelectorAll("button");
   buttons.forEach(btn => btn.disabled = true);
@@ -147,14 +156,14 @@ async function handleApprovalUpdate(div, path, id, item, action) {
     const newStatus = statusMap[path][action];
     if (!newStatus) throw new Error("Invalid action/status mapping.");
 
-    // Update the main request
+    // Update main request
     await update(ref(db, `${path}/${id}`), { status: newStatus });
 
-    // Additional steps for return approvals
+    // 🔧 FIX — Update associated loan and inventory for returns only AFTER admin approval
     if (path === "returns" && newStatus === "returned") {
       if (!item.loanKey) throw new Error(`Return request missing associated loan key for ${item.itemId}.`);
 
-      // Update the associated loan status
+      // Update loan status
       await update(ref(db, `loans/${item.loanKey}`), { status: "returned" });
 
       // Update inventory availability

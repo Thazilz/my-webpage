@@ -1,377 +1,269 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Inventory Form</title>
-  <style>
-    body { font-family: Arial; padding: 20px; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Inventory</title>
 
-    /* Navigation styles - plain like index.html */
-    nav {
-      font-family: Arial, sans-serif;
-      margin-bottom: 20px;
-    }
-    nav a {
-      color: black;
-      text-decoration: none;
-      margin-right: 10px;
-    }
-    nav a:hover {
-      text-decoration: underline;
-    }
-    nav button {
-      font-family: Arial, sans-serif;
-      padding: 6px 12px;
-      cursor: pointer;
-      background: none;
-      border: 1px solid #ccc;
-      color: black;
-      float: right;
-    }
-    nav button:hover {
-      background: #f0f0f0;
-    }
-
-    #mainContainer {
-      display: flex;
-      gap: 40px;
-      max-width: 900px;
-      margin: 20px auto;
-      align-items: flex-start;
-    }
-
-    #leftColumn { flex: 1; }
-    #rightColumn { width: 480px; }
-
-    form input { width: 100%; margin-bottom: 10px; padding: 8px; }
-    form button { padding: 10px 20px; width: 100%; }
-
-    .success { color: green; }
-    .error { color: red; }
-
-    #inventorySummary {
-      background: #f5f5f5;
-      padding: 15px;
-      border-radius: 6px;
-      box-shadow: 0 0 8px #ddd;
-      max-height: 600px;
-      overflow-y: auto;
-    }
-
-    ul { list-style-type: none; padding-left: 0; margin: 0; }
-    li {
-      background: white;
-      margin-bottom: 10px;
-      padding: 10px;
-      border-radius: 4px;
-      box-shadow: 0 1px 3px #ccc;
-    }
-    li strong { display: block; margin-bottom: 6px; font-size: 1.1em; }
-
-    #nfcStatus { text-align: center; margin: 10px 0; font-weight: bold; }
-
-    img {
-      display: block;
-      max-width: 100%;
-      height: auto;
-      margin-top: 8px;
-      border-radius: 4px;
-    }
-
-#approvalsLink {
-  display: none;
-}
-  </style>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  nav a { margin-right: 10px; text-decoration: none; color: black; }
+  nav button { float: right; border: 1px solid #ccc; padding: 6px 10px; cursor: pointer; }
+  nav button:hover { background: #eee; }
+  form input, form button, select { display:block; margin-bottom:10px; padding:8px; width:100%; }
+  .item { padding: 8px; border: 1px solid #ccc; margin-bottom: 10px; border-radius:6px; background:white; }
+  .item img { max-width:120px; display:block; margin-top:6px; }
+  .error { color:red; }
+  .success { color:green; }
+</style>
 </head>
 <body>
 
-<!-- Hardcoded Navigation -->
 <nav>
   <a href="index.html">Home</a> |
   <a href="inventory.html">Inventory</a> |
   <a href="loan.html">Loan</a> |
-  <a href="return.html">Return</a> |
-  <a href="approval.html" id="approvalsLink">Approvals</a>
+  <a href="return.html">Return</a>
+  <a href="approval.html" id="approvalsLink" style="display:none;">| Approvals</a>
   <button id="logoutBtn">Logout</button>
 </nav>
 <hr>
 
-<h2>Inventory Submission</h2>
+<h2>Inventory Management</h2>
 
-<div style="text-align: center; margin-bottom: 20px;">
-  <button type="button" onclick="startNFC()">📲 Scan NFC Tag</button>
-  <div id="nfcStatus"></div>
+  <div id="addItemSection">
+  <h3>Add New Item</h3>
+
+  <form id="addItemForm">
+
+<form id="addItemForm">
+  <input type="text" id="itemName" placeholder="Item Name" required />
+  <input type="text" id="brand" placeholder="Brand" required />
+  <input type="text" id="modelNumber" placeholder="Model Number" required />
+  <input type="text" id="serialNumber" placeholder="Serial Number" required />
+  <input type="file" id="imageFile" accept="image/*" />
+  <button type="submit">Add Item</button>
+</form>
 </div>
 
-<div id="mainContainer">
-  <!-- Left Column: Only the form remains -->
-  <div id="leftColumn">
-    <form id="inventoryForm">
-      <input type="text" id="itemName" placeholder="Inventory Item Name" required />
-      <input type="text" id="brand" placeholder="Brand" required />
-      <input type="text" id="modelNumber" placeholder="Model Number" required />
-      <input type="text" id="serialNumber" placeholder="Serial Number" required />
-      <input type="url" id="imageUrl" placeholder="Image URL (optional)" />
-      <button type="submit">📥 Submit Inventory</button>
-    </form>
 
-    <p id="responseMsg"></p>
-  </div>
+<p id="msg"></p>
 
-  <!-- Right Column: Summary only -->
-  <div id="rightColumn">
-    <div style="margin-bottom: 10px;">
-      <label for="filterField">🔽 Filter Summary by:</label>
-      <select id="filterField">
-        <option value="all" selected>All Items</option>
-        <option value="itemName">Item Name</option>
-        <option value="brand">Brand</option>
-        <option value="modelNumber">Model Number</option>
-        <option value="serialNumber">Serial Number</option>
-        <option value="loanStatus">Loan Status</option>
-      </select>
-    </div>
+<h3>Filter Inventory</h3>
+<label for="filterName">Item Name:</label>
+<select id="filterName"><option value="">-- All Names --</option></select>
 
-    <div id="searchContainer" style="margin-bottom: 15px; display:none;">
-      <input type="text" id="filterInput" placeholder="Enter search term..." style="width:100%; padding:8px;">
-    </div>
+<label for="filterBrand">Brand:</label>
+<select id="filterBrand"><option value="">-- All Brands --</option></select>
 
-    <div id="loanStatusContainer" style="margin-bottom:15px; display:none;">
-      <select id="loanStatusFilter" style="width:100%; padding:8px;">
-        <option value="all" selected>All</option>
-        <option value="available">Available</option>
-        <option value="loaned">On Loan</option>
-      </select>
-    </div>
+<label for="filterModel">Model Number:</label>
+<select id="filterModel"><option value="">-- All Models --</option></select>
 
-    <div id="inventorySummary">
-      <h3>Inventory Summary (Filtered)</h3>
-      <ul id="summaryUl"></ul>
-    </div>
-  </div>
-</div>
+<h3>Inventory List</h3>
+<div id="inventoryList"></div>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-  import { getDatabase, ref, push, serverTimestamp, onValue } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
-  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import { getDatabase, ref, push, set, onValue, remove, query, orderByChild, equalTo, get } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
-    authDomain: "my-webpage-93c94.firebaseapp.com",
-    databaseURL: "https://my-webpage-93c94-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "my-webpage-93c94",
-    storageBucket: "my-webpage-93c94.appspot.com",
-    messagingSenderId: "959385466155",
-    appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
-  };
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyA67aMWlPYaAeh_07o1EaP8mkA2-rhYsUs",
+  authDomain: "my-webpage-93c94.firebaseapp.com",
+  databaseURL: "https://my-webpage-93c94-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "my-webpage-93c94",
+  storageBucket: "my-webpage-93c94.appspot.com",
+  messagingSenderId: "959385466155",
+  appId: "1:959385466155:web:e817821e92fa0acc6ec16e"
+};
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const auth = getAuth(app);
-  const inventoryRef = ref(db, 'inventory');
-  const loansRef = ref(db, 'loans');
+let isAdmin = false;
+const addItemSection = document.getElementById("addItemSection");
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+const storage = getStorage(app);
 
-  const inventoryForm = document.getElementById('inventoryForm');
-  const responseMsg = document.getElementById('responseMsg');
-  const summaryUl = document.getElementById('summaryUl');
-  const filterField = document.getElementById('filterField');
-  const filterInput = document.getElementById('filterInput');
-  const searchContainer = document.getElementById('searchContainer');
-  const loanStatusContainer = document.getElementById('loanStatusContainer');
-  const loanStatusFilter = document.getElementById('loanStatusFilter');
-  const logoutBtn = document.getElementById("logoutBtn");
+const approvalsLink = document.getElementById("approvalsLink");
+const logoutBtn = document.getElementById("logoutBtn");
+const inventoryList = document.getElementById("inventoryList");
+const addItemForm = document.getElementById("addItemForm");
+const msg = document.getElementById("msg");
 
-  let activeLoanedItems = new Set();
-  let inventoryData = {};
+const filterName = document.getElementById("filterName");
+const filterBrand = document.getElementById("filterBrand");
+const filterModel = document.getElementById("filterModel");
 
-  onAuthStateChanged(auth, async user => {
-  if (!user) {
-    return window.location.href = "login.html";
-  }
+let allInventory = {}; // store all inventory for filtering
 
-  // --- Show Approvals link only for Admins ---
-  const approvalsLink = document.getElementById("approvalsLink");
+
+logoutBtn.addEventListener("click", () => signOut(auth).then(() => window.location.href="login.html"));
+
+// Auth Check & Approvals link
+onAuthStateChanged(auth, async user => {
+  if (!user) return (window.location.href = "login.html");
+
   const token = await user.getIdTokenResult();
-  const isAdmin = !!token.claims.admin;
 
-  if (isAdmin) {
+  if (token.claims.admin) {
     approvalsLink.style.display = "inline";
+    isAdmin = true;   // admin stored
+  } else {
+    addItemSection.style.display = "none"; // hide Add Item for non-admins
   }
-  // -------------------------------------------
+
+  loadInventory();
 });
 
-  logoutBtn.addEventListener("click", async () => {
-    try {
-      await signOut(auth);
-      window.location.href = "login.html";
-    } catch (err) {
-      alert("Logout failed.");
-    }
+// Load Inventory
+function loadInventory() {
+  const invRef = ref(db, "inventory");
+
+  onValue(invRef, snap => {
+    const data = snap.val() || {};
+    allInventory = data; // store for filtering
+    populateFilters(data);
+    renderInventory(data);
   });
+}
 
-  onValue(loansRef, (snapshot) => {
-    activeLoanedItems.clear();
-    const loans = snapshot.val();
-    if (loans) {
-      Object.values(loans).forEach(loan => {
-        if (loan.status === 'active' && loan.itemId) {
-          activeLoanedItems.add(loan.itemId.trim());
-        }
-      });
-    }
-    renderInventorySummary();
-  });
-
-  onValue(inventoryRef, (snapshot) => {
-    inventoryData = snapshot.val() || {};
-    renderInventorySummary();
-  });
-
-  function applyFilter(items) {
-    const field = filterField.value;
-    const query = filterInput.value.trim().toLowerCase();
-    const loanFilter = loanStatusFilter.value;
-
-    return Object.values(items).filter(item => {
-      const serial = item.serialNumber || "";
-      const isLoaned = activeLoanedItems.has(serial);
-
-      if (field !== 'loanStatus' && field !== 'all' && query) {
-        const value = (item[field] || "").toLowerCase();
-        return value.includes(query);
-      }
-
-      if (field === 'loanStatus') {
-        if (loanFilter === 'loaned') return isLoaned;
-        if (loanFilter === 'available') return !isLoaned;
-      }
-
-      return true;
-    });
+// Render Inventory List
+function renderInventory(data) {
+  inventoryList.innerHTML = "";
+  if(!data || Object.keys(data).length === 0){
+    inventoryList.innerHTML = "<p>No items found.</p>";
+    return;
   }
 
-  function renderInventorySummary() {
-    summaryUl.innerHTML = '';
-    const items = applyFilter(inventoryData);
+  Object.entries(data).forEach(([itemId, item]) => {
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+  <strong>${item.itemName}</strong><br>
+  Brand: ${item.brand}<br>
+  Model: ${item.modelNumber}<br>
+  Serial: ${item.serialNumber}<br>
+  Available: <b>${item.available ? "Yes" : "No"}</b><br>
+  ${item.imageUrl ? `<img src="${item.imageUrl}">` : ""}
 
-    if (items.length === 0) {
-      summaryUl.innerHTML = '<li>No matching inventory items.</li>';
-      return;
+  <br>
+  <a href="loan.html?itemId=${encodeURIComponent(item.serialNumber)}&model=${encodeURIComponent(item.modelNumber)}&brand=${encodeURIComponent(item.brand)}">
+    <button>Loan Item</button>
+  </a>
+
+  ${isAdmin ? `<button data-id="${itemId}" class="deleteBtn">Delete</button>` : ""}
+`;
+
+    inventoryList.appendChild(div);
+  });
+
+  attachDeleteHandlers();
+}
+
+// Populate filter dropdowns
+function populateFilters(data){
+  const nameSet = new Set();
+  const brandSet = new Set();
+  const modelSet = new Set();
+
+  Object.values(data).forEach(item=>{
+    if(item.itemName) nameSet.add(item.itemName);
+    if(item.brand) brandSet.add(item.brand);
+    if(item.modelNumber) modelSet.add(item.modelNumber);
+  });
+
+  filterName.innerHTML = '<option value="">-- All Names --</option>';
+  Array.from(nameSet).sort().forEach(v=> filterName.appendChild(new Option(v,v)));
+  
+  filterBrand.innerHTML = '<option value="">-- All Brands --</option>';
+  Array.from(brandSet).sort().forEach(v=> filterBrand.appendChild(new Option(v,v)));
+  
+  filterModel.innerHTML = '<option value="">-- All Models --</option>';
+  Array.from(modelSet).sort().forEach(v=> filterModel.appendChild(new Option(v,v)));
+}
+
+// Apply filters
+function applyFilters(){
+  const nameVal = filterName.value;
+  const brandVal = filterBrand.value;
+  const modelVal = filterModel.value;
+
+  const filtered = {};
+  Object.entries(allInventory).forEach(([id,item])=>{
+    if((!nameVal || item.itemName===nameVal) &&
+       (!brandVal || item.brand===brandVal) &&
+       (!modelVal || item.modelNumber===modelVal)){
+         filtered[id] = item;
     }
+  });
+  renderInventory(filtered);
+}
 
-    items.forEach(item => {
-      const { itemName, brand, modelNumber, serialNumber, imageUrl, timestamp } = item;
+filterName.addEventListener("change", applyFilters);
+filterBrand.addEventListener("change", applyFilters);
+filterModel.addEventListener("change", applyFilters);
 
-      const ts = typeof timestamp === "number"
-        ? timestamp
-        : timestamp?.toMillis?.();
-
-      const dateStr = ts ? new Date(ts).toLocaleString() : "Pending...";
-
-      const isLoaned = activeLoanedItems.has(serialNumber);
-
-      const loanUrl = `loan.html?itemId=${encodeURIComponent(serialNumber)}&model=${encodeURIComponent(modelNumber)}&brand=${encodeURIComponent(brand)}`;
-
-      const loanLink = isLoaned
-        ? '<em style="color:red;">Currently on loan</em>'
-        : `<a href="${loanUrl}" style="color: blue;">📦 Loan</a>`;
-
-      const li = document.createElement('li');
-      li.innerHTML = `
-        <strong>${itemName}</strong>
-        <div>Brand: ${brand}</div>
-        <div>Model: ${modelNumber}</div>
-        <div>Serial #: ${serialNumber}</div>
-        <em>Submitted: ${dateStr}</em>
-        ${imageUrl ? `<img src="${imageUrl}" alt="${itemName}" />` : ''}
-        <div>${loanLink}</div>
-      `;
-      summaryUl.appendChild(li);
+// Delete Item
+function attachDeleteHandlers(){
+  document.querySelectorAll(".deleteBtn").forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+      const id = btn.dataset.id;
+      if(!confirm("Delete this item?")) return;
+      await remove(ref(db, "inventory/" + id));
     });
+  });
+}
+
+// Add Item
+addItemForm.addEventListener("submit", async e=>{
+  e.preventDefault();
+  msg.textContent = "";
+  msg.className = "";
+
+  const name = itemName.value.trim();
+  const brandVal = brand.value.trim();
+  const modelVal = modelNumber.value.trim();
+  const serial = serialNumber.value.trim();
+  const file = imageFile.files[0];
+
+  if(!name || !brandVal || !modelVal || !serial){
+    msg.textContent = "All fields except image are required.";
+    msg.className = "error";
+    return;
   }
 
-  filterField.addEventListener('change', () => {
-    const field = filterField.value;
-    searchContainer.style.display = field !== 'all' && field !== 'loanStatus' ? 'block' : 'none';
-    loanStatusContainer.style.display = field === 'loanStatus' ? 'block' : 'none';
-    renderInventorySummary();
+  const q = query(ref(db, "inventory"), orderByChild("serialNumber"), equalTo(serial));
+  const existing = await get(q);
+  if(existing.exists()){
+    msg.textContent = "Serial number already exists.";
+    msg.className = "error";
+    return;
+  }
+
+  let imageUrl = "";
+  if(file){
+    const storageRef = sRef(storage, `inventory/${Date.now()}_${file.name}`);
+    await uploadBytes(storageRef, file);
+    imageUrl = await getDownloadURL(storageRef);
+  }
+
+  const newItemRef = push(ref(db, "inventory"));
+  await set(newItemRef,{
+    itemName: name,
+    brand: brandVal,
+    modelNumber: modelVal,
+    serialNumber: serial,
+    imageUrl,
+    available: true
   });
 
-  filterInput.addEventListener('input', renderInventorySummary);
-  loanStatusFilter.addEventListener('change', renderInventorySummary);
-
-  inventoryForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const itemName = document.getElementById('itemName').value.trim();
-    const brand = document.getElementById('brand').value.trim();
-    const modelNumber = document.getElementById('modelNumber').value.trim();
-    const serialNumber = document.getElementById('serialNumber').value.trim();
-    const imageUrl = document.getElementById('imageUrl').value.trim();
-
-    if (!itemName || !brand || !modelNumber || !serialNumber) {
-      responseMsg.textContent = "Please fill in all required fields.";
-      responseMsg.className = "error";
-      return;
-    }
-
-    const isDuplicate = Object.values(inventoryData || {}).some(item => item.serialNumber === serialNumber);
-    if (isDuplicate) {
-      responseMsg.textContent = "An item with this serial number already exists.";
-      responseMsg.className = "error";
-      return;
-    }
-
-    try {
-      await push(inventoryRef, { itemName, brand, modelNumber, serialNumber, imageUrl, timestamp: serverTimestamp() });
-      responseMsg.textContent = "Inventory submitted successfully!";
-      responseMsg.className = "success";
-      inventoryForm.reset();
-    } catch {
-      responseMsg.textContent = "Error submitting inventory.";
-      responseMsg.className = "error";
-    }
-  });
-
-  window.startNFC = async function () {
-    const status = document.getElementById("nfcStatus");
-
-    if ('NDEFReader' in window) {
-      try {
-        const ndef = new NDEFReader();
-        await ndef.scan();
-        status.textContent = "📡 NFC scanning... Tap a tag!";
-
-        ndef.onreading = event => {
-          const decoder = new TextDecoder();
-          const { message, serialNumber } = event;
-
-          let itemName = "";
-          for (const record of message.records) {
-            if (record.recordType === "text") {
-              itemName = decoder.decode(record.data);
-              break;
-            }
-          }
-
-          status.textContent = `✅ NFC tag read: "${itemName || serialNumber}"`;
-
-          if (itemName) document.getElementById("itemName").value = itemName;
-          if (serialNumber) document.getElementById("serialNumber").value = serialNumber;
-
-          document.getElementById("itemName").scrollIntoView({ behavior: 'smooth' });
-        };
-
-      } catch (error) {
-        status.textContent = "⚠️ NFC scan failed.";
-      }
-    } else {
-      alert("❌ Web NFC is not supported on this device.");
-    }
-  };
+  msg.textContent = "Item added successfully!";
+  msg.className = "success";
+  addItemForm.reset();
+});
 </script>
-
 </body>
 </html>
 
